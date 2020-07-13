@@ -9,11 +9,12 @@
 #include "shogi.hpp"
 
 void help_and_exit(int argc, char* argv[]) {
-  std::printf("usage: %s [-a] filename\n", argv[0]);
-  std::printf("-a: search all cases of piece reversing\n");
-  std::printf("-n: node limits of searching\n");
-  std::printf("-v: verbose searching info\n");
-  std::printf("--: read from stdin\n");
+  std::printf("usage: %s [-a] [-n node_limit] [-v] filename\n", argv[0]);
+  std::printf("usage: %s [-a] [-n node_limit] [-v] --\n", argv[0]);
+  std::printf("-a            : search all cases of piece reversing\n");
+  std::printf("-n node_limit : node limits of searching\n");
+  std::printf("-v            : verbose searching info\n");
+  std::printf("--            : read from stdin\n");
   std::exit(EXIT_FAILURE);
 }
 
@@ -28,7 +29,10 @@ int main(int argc, char* argv[]) {
     if (std::strcmp(arg, "-a") == 0) {
       search_all = true;
     } else if (std::strcmp(arg, "-n") == 0) {
-      node_limit = std::stoi(std::string(arg));
+      ++i;
+      if (i < argc) {
+        node_limit = std::stoi(std::string(argv[i]));
+      }
     } else if (std::strcmp(arg, "-v") == 0) {
       verbose = true;
     } else if (std::strcmp(arg, "--") == 0) {
