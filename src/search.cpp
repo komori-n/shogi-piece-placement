@@ -137,7 +137,7 @@ int Search::run_all_(const PCVector& pc_list) {
       allOneBB(), allZeroBB(), 0, 0, pieces_log, ans_sfens_);
     if (found) {
       if (verbose_) {
-        std::cout << ans_sfens_[0] << std::endl;
+        std::printf("%s\n", ans_sfens_[0].c_str());
       }
       return 1;
     }
@@ -275,7 +275,7 @@ bool Search::search_both_dir_pawn_(
 
   // print #(nodes) periodically
   if (verbose_ && node_count_ % 100000000 == 0) {
-    std::cout << node_count_ << " " << depth << std::endl;
+    std::printf("%" PRIu64 " %d\n", node_count_, depth);
   }
 
   PieceType pc = pc_list[depth];

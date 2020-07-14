@@ -61,9 +61,9 @@ int main(int argc, char* argv[]) {
 
   int found_cnt = search.run(pc_list);
 
-  std::cout << found_cnt << std::endl;
+  std::printf("%d\n", found_cnt);
   if (found_cnt > 0) {
-    std::cout << search.ans_sfens()[0] << std::endl;
+    std::printf("%s\n", search.ans_sfens()[0].c_str());
   }
 
   return EXIT_SUCCESS;

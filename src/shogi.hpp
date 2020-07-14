@@ -265,15 +265,16 @@ public:
 
   // for debug
   void printBoard() const {
-    std::cout << "   A  B  C  D  E  F  G  H  I\n";
+    std::printf("   A  B  C  D  E  F  G  H  I\n");
     for (int r = 0; r < 10; ++r) {
-      std::cout << (r + 1) % 10;
-      for (int f = 9 - 1; f >= 0; --f)
-        std::cout << (this->isSet(makeSquare(f, r)) ? "  X" : "  .");
-      std::cout << "\n";
+      std::printf("%d", (r + 1) % 10);
+      for (int f = 9 - 1; f >= 0; --f) {
+        std::printf("  %c", this->isSet(makeSquare(f, r)) ? 'X' : '.');
+      }
+      std::putchar('\n');
     }
 
-    std::cout << std::endl;
+    std::putchar('\n');
   }
 
   // 指定した位置が Bitboard のどちらの u64 変数の要素か
