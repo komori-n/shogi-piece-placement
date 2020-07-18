@@ -290,12 +290,14 @@ private:
 extern const Bitboard AllOneBB;
 extern Bitboard GreaterMaskBB[SquareNum];
 extern Bitboard AttackBB[PCNum][SquareNum];
+extern Bitboard EdgeBB[ColorNum];
 
 inline Bitboard squareMaskBB(Square sq) { return SquareMaskBB[sq]; }
 inline Bitboard greaterMask(Square sq) { return GreaterMaskBB[sq]; }
 inline Bitboard allOneBB() { return AllOneBB; }
 inline Bitboard allZeroBB() { return Bitboard(0, 0); }
 inline Bitboard attackBB(PieceType pc, Square sq) { return AttackBB[pc][sq]; }
+inline Bitboard edgeBB(Color c) { return EdgeBB[c]; }
 
 void initAttackBB();
 const char* usi_string(PieceType pc);

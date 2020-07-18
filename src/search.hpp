@@ -9,6 +9,13 @@
 
 using PCVector = std::vector<PieceType>;
 
+inline void print_pcvector(const PCVector& pc_vector) {
+  for (auto pc : pc_vector) {
+    std::printf("%s", usi_string(pc));
+  }
+  std::putchar('\n');
+}
+
 class Search {
  public:
   static constexpr u64 Unlimit = std::numeric_limits<u64>::max();
@@ -16,6 +23,7 @@ class Search {
   Search(bool search_all=false, u64 node_limit=Unlimit);
   int run(const PCVector& pc_list);
   void set_verbose(bool verbose) { verbose_ = verbose; }
+  void set_search_lance(bool search_lance) { search_lance_ = search_lance; }
 
   const std::vector<std::string>& ans_sfens(void) const { return ans_sfens_; }
 
@@ -36,7 +44,7 @@ class Search {
 
   bool search_both_dir_pawn_(
     const PCVector& pc_list,
-    int pawn, int stone,
+    int pawn, int stone, int lance,
     Bitboard no_control, Bitboard pieces_bb,
     int depth, Square last_sq,
     PiecePositions& pieces_log,
@@ -47,6 +55,7 @@ class Search {
   u64 node_limit_;
   bool search_all_;
   bool verbose_;
+  bool search_lance_;
 
   std::vector<std::string> ans_sfens_;
 };

@@ -136,6 +136,7 @@ const Bitboard AllOneBB = (
 );
 
 Bitboard GreaterMaskBB[SquareNum];
+Bitboard EdgeBB[ColorNum];
 
 namespace {
   bool isInSquare(int file, int rank) {
@@ -235,6 +236,11 @@ void initAttackBB() {
     for (Square sq2 = 0; sq2 <= sq; ++sq2) {
       GreaterMaskBB[sq] ^= SquareMaskBB[sq2];
     }
+  }
+
+  for (int f = 0; f < 9; ++f) {
+    EdgeBB[Black] |= SquareMaskBB[makeSquare(f, 0)];
+    EdgeBB[White] |= SquareMaskBB[makeSquare(f, 8)];
   }
 }
 

@@ -84,13 +84,17 @@ int Search::run_all_(const PCVector& pc_list) {
   int asymmetry_len[PieceTypeNum] = {0};
   int asymmetry_cnt[PieceTypeNum] = {0};
   int pawn = 0;
+  int lance = 0;
   int stone = 0;
 
   for (PieceType pc : pc_list) {
     PieceType pt = simplify_gold(pc2pt(pc));
-    if (pt == Pawn || pt == Lance) {
+    if (pt == Pawn) {
       // Lance is treated as Pawn in order to speed up
       pawn++;
+    } else if (pt == Lance) {
+      pawn++;
+      lance++;
     } else if (pt == Stone) {
       stone++;
     } else if (is_symmetry(pt)) {
@@ -133,7 +137,7 @@ int Search::run_all_(const PCVector& pc_list) {
     int search_stone = stone + (pc_list.size() - count_pawn_like_either(pc_list));
     PiecePositions pieces_log;
     bool found;
-    found = search_both_dir_pawn_(pc_list, search_pawn, search_stone,
+    found = search_both_dir_pawn_(pc_list, search_pawn, search_stone, lance,
       allOneBB(), allZeroBB(), 0, 0, pieces_log, ans_sfens_);
     if (found) {
       if (verbose_) {
@@ -175,6 +179,7 @@ int Search::search_(
   if (depth >= pc_len) {
     // found placement
     ans.push_back(pieces2sfen(pieces_log));
+    std::cout << pieces2sfen(pieces_log) << std::endl;
     return 1;
   }
 
@@ -239,7 +244,7 @@ int Search::search_(
 
 bool Search::search_both_dir_pawn_(
     const PCVector& pc_list,
-    int pawn, int stone,
+    int pawn, int stone, int lance,
     Bitboard no_effect_bb, Bitboard pieces_bb,
     int depth, Square last_sq,
     PiecePositions& pieces_log,
@@ -250,6 +255,10 @@ bool Search::search_both_dir_pawn_(
     Bitboard pawn_bb, pawn_v_bb;
     // judge if remain pawns and stones are placeable
     if (judge_placeable_dual_retboard(no_effect_bb, pawn, stone, pieces_bb, pawn_bb, pawn_v_bb)) {
+      if (search_lance_ &&
+          ((pawn_bb & edgeBB(Black)) | (pawn_v_bb & edgeBB(White))).popCount() < lance) {
+        return 0;
+      }
       PiecePositions pieces_ans(pieces_log);
       // convert pawn_bb, pawn_v_bb to pieces_log entry
       while (pawn_bb.isAny()) {
@@ -300,7 +309,7 @@ bool Search::search_both_dir_pawn_(
       int new_stone = stone - !(is_pawn_like<false>(pc) || is_pawn_like<true>(pc));
       bool found = search_both_dir_pawn_(
         pc_list,
-        new_pawn, new_stone,
+        new_pawn, new_stone, lance,
         no_effect_bb & (~attack), pieces_bb | squareMaskBB(sq),
         depth + 1, sq,
         pieces_log,
@@ -516,6 +525,7 @@ bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
     while (pawn > 0) {
       Square sq = next_placement.firstOneFromSQ11();
       pawn_bb |= squareMaskBB(sq);
+      pawn--;
     }
     return true;
   } else {
