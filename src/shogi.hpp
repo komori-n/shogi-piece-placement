@@ -1,4 +1,5 @@
-#pragma once
+#ifndef KOMORI_SHOGI_HPP_
+#define KOMORI_SHOGI_HPP_
 
 #include <immintrin.h>
 #include <cinttypes>
@@ -6,6 +7,7 @@
 #include <string>
 #include <vector>
 
+namespace komori {
 using u64 = std::uint64_t;
 inline int count1s(u64 x) {
   return _mm_popcnt_u64(x);
@@ -321,3 +323,6 @@ void initAttackBB();
 const char* usi_string(PieceType pc);
 
 std::vector<PieceType> input_parse(std::string in_str);
+}  // namespace komori
+
+#endif  // KOMORI_SHOGI_HPP_

@@ -5,6 +5,8 @@
 #include "search.hpp"
 #include "shogi.hpp"
 
+using namespace komori;
+
 namespace {
 // Ordering pieces for placing
 struct PCSortObject {
@@ -48,6 +50,7 @@ Bitboard pawn_placeable(Bitboard no_effect_bb, Bitboard pieces_bb) {
 }
 }  // namespace
 
+namespace komori {
 Search::Search(bool search_all, u64 node_limit)
     : node_count_(0), node_limit_(node_limit), search_all_(search_all), verbose_(false) {
   initAttackBB();
@@ -500,3 +503,5 @@ bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
 // explicit instanciation
 template bool judge_placeable<false>(Bitboard no_effect_bb, int pawn, int stone, Bitboard pawn_allowed);
 template bool judge_placeable<true>(Bitboard no_effect_bb, int pawn, int stone, Bitboard pawn_allowed);
+
+}  // namespace komori

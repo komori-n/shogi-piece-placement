@@ -8,6 +8,8 @@
 #include "search.hpp"
 #include "shogi.hpp"
 
+using namespace komori;
+
 void help_and_exit(int argc, char* argv[]) {
   std::printf("usage: %s [-a] [-n node_limit] [-v] filename\n", argv[0]);
   std::printf("usage: %s [-a] [-n node_limit] [-v] --\n", argv[0]);

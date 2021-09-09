@@ -1,4 +1,5 @@
-#pragma once
+#ifndef KOMORI_SEARCH_HPP_
+#define KOMORI_SEARCH_HPP_
 
 #include <limits>
 #include <map>
@@ -7,6 +8,7 @@
 
 #include "shogi.hpp"
 
+namespace komori {
 using PCVector = std::vector<PieceType>;
 
 inline void print_pcvector(const PCVector& pc_vector) {
@@ -74,3 +76,6 @@ bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
                                    Bitboard pieces,
                                    Bitboard& pawn_bb,
                                    Bitboard& pawn_v_bb);
+}  // namespace komori
+
+#endif  // KOMORI_SEARCH_HPP_

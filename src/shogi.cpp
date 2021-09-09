@@ -5,7 +5,7 @@
 #include "shogi.hpp"
 
 namespace {
-constexpr bool IsPawnLike[PCNum] = {
+constexpr bool IsPawnLike[komori::PCNum] = {
     false,                       // BStone
     true,  true,  false, true,   // BPawn, BLance, BKnight, BSilver
     false, true,  true,  true,   // BBishop, BRook, BGold, BKing
@@ -20,8 +20,9 @@ constexpr bool IsPawnLike[PCNum] = {
     true,                        // Queen
     false                        // None
 };
-}
+}  // namespace
 
+namespace komori {
 const Bitboard SquareMaskBB[SquareNum] = {
     Bitboard(u64(1) << 0, 0),  Bitboard(u64(1) << 1, 0),  Bitboard(u64(1) << 2, 0),  Bitboard(u64(1) << 3, 0),
     Bitboard(u64(1) << 4, 0),  Bitboard(u64(1) << 5, 0),  Bitboard(u64(1) << 6, 0),  Bitboard(u64(1) << 7, 0),
@@ -300,3 +301,4 @@ std::vector<PieceType> input_parse(std::string in_str) {
 // explicit instanciation
 template bool is_pawn_like<false>(PieceType pc);
 template bool is_pawn_like<true>(PieceType pc);
+}  // namespace komori
