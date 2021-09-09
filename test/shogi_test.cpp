@@ -1,7 +1,7 @@
-#include "gtest/gtest.h"
 #include "shogi.hpp"
+#include "gtest/gtest.h"
 
-class ShogiTest : public ::testing::Test{};
+class ShogiTest : public ::testing::Test {};
 
 namespace {
 TEST_F(ShogiTest, BitOperation) {
@@ -55,4 +55,4 @@ TEST_F(ShogiTest, IsPawnLike) {
   EXPECT_FALSE(is_pawn_like<true>(BlackSilver));
   EXPECT_FALSE(is_pawn_like<true>(WhiteBishop));
 }
-}
+}  // namespace

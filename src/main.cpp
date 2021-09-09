@@ -1,7 +1,7 @@
 #include <chrono>
-#include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
       while (std::getline(std::cin, line)) {
         piece_sets.push_back(line);
       }
-    }else {
+    } else {
       std::ifstream ifs(arg);
       if (!ifs) {
         std::printf("file open error: %s\n\n", arg);

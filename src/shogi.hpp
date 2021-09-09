@@ -1,10 +1,10 @@
 #pragma once
 
-#include <cinttypes>
 #include <immintrin.h>
+#include <cinttypes>
 #include <iostream>
-#include <vector>
 #include <string>
+#include <vector>
 
 using u64 = std::uint64_t;
 inline int count1s(u64 x) {
@@ -12,7 +12,7 @@ inline int count1s(u64 x) {
 }
 
 inline int firstOneFromLSB(const u64 b) {
-    return __builtin_ctzll(b);
+  return __builtin_ctzll(b);
 }
 
 using Square = int;
@@ -24,40 +24,52 @@ inline Square makeSquare(int file, int rank) {
 // <pieces>
 enum PieceType {
   PTWhiteFlag = 0x10,
-  Stone = 0, // 各 PieceType の or をとったもの。
-  Pawn, Lance, Knight, Silver, Bishop, Rook, Gold, King,
-  ProPawn, ProLance, ProKnight, ProSilver, ProBishop, ProRook,
+  Stone = 0,  // 各 PieceType の or をとったもの。
+  Pawn,
+  Lance,
+  Knight,
+  Silver,
+  Bishop,
+  Rook,
+  Gold,
+  King,
+  ProPawn,
+  ProLance,
+  ProKnight,
+  ProSilver,
+  ProBishop,
+  ProRook,
   PieceTypeNum,
 
-  BlackPawn      = Pawn,
-  BlackLance     = Lance,
-  BlackKnight    = Knight,
-  BlackSilver    = Silver,
-  BlackBishop    = Bishop,
-  BlackRook      = Rook,
-  BlackGold      = Gold,
-  BlackKing      = King,
-  BlackProPawn   = ProPawn,
-  BlackProLance  = ProLance,
+  BlackPawn = Pawn,
+  BlackLance = Lance,
+  BlackKnight = Knight,
+  BlackSilver = Silver,
+  BlackBishop = Bishop,
+  BlackRook = Rook,
+  BlackGold = Gold,
+  BlackKing = King,
+  BlackProPawn = ProPawn,
+  BlackProLance = ProLance,
   BlackProKnight = ProKnight,
   BlackProSilver = ProSilver,
   BlackProBishop = ProBishop,
-  BlackProRook   = ProRook,
+  BlackProRook = ProRook,
 
-  WhitePawn      = Pawn      | PTWhiteFlag,
-  WhiteLance     = Lance     | PTWhiteFlag,
-  WhiteKnight    = Knight    | PTWhiteFlag,
-  WhiteSilver    = Silver    | PTWhiteFlag,
-  WhiteBishop    = Bishop    | PTWhiteFlag,
-  WhiteRook      = Rook      | PTWhiteFlag,
-  WhiteGold      = Gold      | PTWhiteFlag,
-  WhiteKing      = King      | PTWhiteFlag,
-  WhiteProPawn   = ProPawn   | PTWhiteFlag,
-  WhiteProLance  = ProLance  | PTWhiteFlag,
+  WhitePawn = Pawn | PTWhiteFlag,
+  WhiteLance = Lance | PTWhiteFlag,
+  WhiteKnight = Knight | PTWhiteFlag,
+  WhiteSilver = Silver | PTWhiteFlag,
+  WhiteBishop = Bishop | PTWhiteFlag,
+  WhiteRook = Rook | PTWhiteFlag,
+  WhiteGold = Gold | PTWhiteFlag,
+  WhiteKing = King | PTWhiteFlag,
+  WhiteProPawn = ProPawn | PTWhiteFlag,
+  WhiteProLance = ProLance | PTWhiteFlag,
   WhiteProKnight = ProKnight | PTWhiteFlag,
   WhiteProSilver = ProSilver | PTWhiteFlag,
   WhiteProBishop = ProBishop | PTWhiteFlag,
-  WhiteProRook   = ProRook   | PTWhiteFlag,
+  WhiteProRook = ProRook | PTWhiteFlag,
 
   PieceQueen,
   PieceEmpty,
@@ -65,46 +77,51 @@ enum PieceType {
   PCNum,
 };
 
-enum Color {
-  Black, White, ColorNum
-};
+enum Color { Black, White, ColorNum };
 
 inline PieceType rev(PieceType pc) {
   return static_cast<PieceType>(pc ^ PTWhiteFlag);
 }
 inline PieceType promote(PieceType pt) {
   switch (pt) {
-  case Pawn:   return ProPawn;
-  case Lance:  return ProLance;
-  case Knight: return ProKnight;
-  case Silver: return ProSilver;
-  case Bishop: return ProBishop;
-  case Rook:   return ProRook;
-  default:     return pt;
+    case Pawn:
+      return ProPawn;
+    case Lance:
+      return ProLance;
+    case Knight:
+      return ProKnight;
+    case Silver:
+      return ProSilver;
+    case Bishop:
+      return ProBishop;
+    case Rook:
+      return ProRook;
+    default:
+      return pt;
   }
 }
 inline PieceType simplify_gold(PieceType pt) {
   switch (pt) {
-  case ProPawn:
-  case ProLance:
-  case ProKnight:
-  case ProSilver:
-    return Gold;
-  default:
-    return pt;
+    case ProPawn:
+    case ProLance:
+    case ProKnight:
+    case ProSilver:
+      return Gold;
+    default:
+      return pt;
   }
 }
 inline bool is_symmetry(PieceType pt) {
   switch (pt) {
-  case King:
-  case Rook:
-  case Bishop:
-  case ProRook:
-  case ProBishop:
-  case PieceQueen:
-    return true;
-  default:
-    return false;
+    case King:
+    case Rook:
+    case Bishop:
+    case ProRook:
+    case ProBishop:
+    case PieceQueen:
+      return true;
+    default:
+      return false;
   }
 }
 inline PieceType pc2pt(PieceType pc) {
@@ -115,8 +132,7 @@ struct PiecePosition {
   PieceType pc;
   Square sq;
 
-  PiecePosition(PieceType pc, Square sq)
-    : pc(pc), sq(sq) {};
+  PiecePosition(PieceType pc, Square sq) : pc(pc), sq(sq){};
 };
 using PiecePositions = std::vector<PiecePosition>;
 std::string pieces2sfen(const PiecePositions& pieces);
@@ -125,19 +141,16 @@ template <bool Rev>
 bool is_pawn_like(PieceType pc);
 // </pieces>
 
-
 class Bitboard;
 extern const Bitboard SquareMaskBB[SquareNum];
 
 class Bitboard {
-public:
-  Bitboard& operator = (const Bitboard& rhs) {
+ public:
+  Bitboard& operator=(const Bitboard& rhs) {
     _mm_store_si128(&this->m_, rhs.m_);
     return *this;
   }
-  Bitboard(const Bitboard& bb) {
-    _mm_store_si128(&this->m_, bb.m_);
-  }
+  Bitboard(const Bitboard& bb) { _mm_store_si128(&this->m_, bb.m_); }
   Bitboard() {}
   Bitboard(const u64 v0, const u64 v1) {
     this->p_[0] = v0;
@@ -145,48 +158,44 @@ public:
   }
   u64 p(const int index) const { return p_[index]; }
   void set(const int index, const u64 val) { p_[index] = val; }
-  explicit operator bool() const {
-    return !(_mm_testz_si128(this->m_, _mm_set1_epi8(static_cast<char>(0xffu))));
-  }
+  explicit operator bool() const { return !(_mm_testz_si128(this->m_, _mm_set1_epi8(static_cast<char>(0xffu)))); }
   bool isAny() const { return static_cast<bool>(*this); }
   // これはコードが見難くなるけど仕方ない。
-  bool andIsAny(const Bitboard& bb) const {
-    return !(_mm_testz_si128(this->m_, bb.m_));
-  }
-  Bitboard operator ~ () const {
+  bool andIsAny(const Bitboard& bb) const { return !(_mm_testz_si128(this->m_, bb.m_)); }
+  Bitboard operator~() const {
     Bitboard tmp;
     _mm_store_si128(&tmp.m_, _mm_andnot_si128(this->m_, _mm_set1_epi8(static_cast<char>(0xffu))));
     return tmp;
   }
-  Bitboard operator &= (const Bitboard& rhs) {
+  Bitboard operator&=(const Bitboard& rhs) {
     _mm_store_si128(&this->m_, _mm_and_si128(this->m_, rhs.m_));
     return *this;
   }
-  Bitboard operator |= (const Bitboard& rhs) {
+  Bitboard operator|=(const Bitboard& rhs) {
     _mm_store_si128(&this->m_, _mm_or_si128(this->m_, rhs.m_));
     return *this;
   }
-  Bitboard operator ^= (const Bitboard& rhs) {
+  Bitboard operator^=(const Bitboard& rhs) {
     _mm_store_si128(&this->m_, _mm_xor_si128(this->m_, rhs.m_));
     return *this;
   }
-  Bitboard operator <<= (const int i) {
+  Bitboard operator<<=(const int i) {
     _mm_store_si128(&this->m_, _mm_slli_epi64(this->m_, i));
     return *this;
   }
-  Bitboard operator >>= (const int i) {
+  Bitboard operator>>=(const int i) {
     _mm_store_si128(&this->m_, _mm_srli_epi64(this->m_, i));
     return *this;
   }
-  Bitboard operator & (const Bitboard& rhs) const { return Bitboard(*this) &= rhs; }
-  Bitboard operator | (const Bitboard& rhs) const { return Bitboard(*this) |= rhs; }
-  Bitboard operator ^ (const Bitboard& rhs) const { return Bitboard(*this) ^= rhs; }
-  Bitboard operator << (const int i) const { return Bitboard(*this) <<= i; }
-  Bitboard operator >> (const int i) const { return Bitboard(*this) >>= i; }
-  bool operator == (const Bitboard& rhs) const {
+  Bitboard operator&(const Bitboard& rhs) const { return Bitboard(*this) &= rhs; }
+  Bitboard operator|(const Bitboard& rhs) const { return Bitboard(*this) |= rhs; }
+  Bitboard operator^(const Bitboard& rhs) const { return Bitboard(*this) ^= rhs; }
+  Bitboard operator<<(const int i) const { return Bitboard(*this) <<= i; }
+  Bitboard operator>>(const int i) const { return Bitboard(*this) >>= i; }
+  bool operator==(const Bitboard& rhs) const {
     return (_mm_testc_si128(_mm_cmpeq_epi8(this->m_, rhs.m_), _mm_set1_epi8(static_cast<char>(0xffu))) ? true : false);
   }
-  bool operator != (const Bitboard& rhs) const { return !(*this == rhs); }
+  bool operator!=(const Bitboard& rhs) const { return !(*this == rhs); }
   // これはコードが見難くなるけど仕方ない。
   Bitboard andEqualNot(const Bitboard& bb) {
     _mm_store_si128(&this->m_, _mm_andnot_si128(bb.m_, this->m_));
@@ -214,9 +223,7 @@ public:
       return *this << 1;
     }
   }
-  bool isSet(const Square sq) const {
-    return andIsAny(SquareMaskBB[sq]);
-  }
+  bool isSet(const Square sq) const { return andIsAny(SquareMaskBB[sq]); }
   void setBit(const Square sq) { *this |= SquareMaskBB[sq]; }
   void clearBit(const Square sq) { andEqualNot(SquareMaskBB[sq]); }
   void xorBit(const Square sq) { (*this) ^= SquareMaskBB[sq]; }
@@ -245,7 +252,8 @@ public:
   // VC++ の _BitScanForward() は入力が 0 のときに 0 を返す仕様なので、
   // 最初に 0 でないか判定するのは少し損。
   Square firstOneFromSQ11() {
-    if (this->p(0))  return firstOneRightFromSQ11();
+    if (this->p(0))
+      return firstOneRightFromSQ11();
     return firstOneLeftFromSQ81();
   }
   // 返す位置を 0 にしないバージョン。
@@ -253,15 +261,13 @@ public:
   Square constFirstOneLeftFromSQ81() const { return static_cast<Square>(firstOneFromLSB(this->p(1)) + 63); }
   Square constFirstOneFromSQ11() const {
     if (this->p(0))
-    return constFirstOneRightFromSQ11();
+      return constFirstOneRightFromSQ11();
     return constFirstOneLeftFromSQ81();
   }
   // Bitboard の 1 の bit を数える。
   int popCount() const { return count1s(p(0)) + count1s(p(1)); }
   // bit が 1 つだけ立っているかどうかを判定する。
-  bool isOneBit() const {
-    return this->popCount() == 1;
-  }
+  bool isOneBit() const { return this->popCount() == 1; }
 
   // for debug
   void printBoard() const {
@@ -280,7 +286,7 @@ public:
   // 指定した位置が Bitboard のどちらの u64 変数の要素か
   static int part(const Square sq) { return static_cast<int>(makeSquare(4, 9) < sq); }
 
-private:
+ private:
   union {
     u64 p_[2];
     __m128i m_;
@@ -292,12 +298,24 @@ extern Bitboard GreaterMaskBB[SquareNum];
 extern Bitboard AttackBB[PCNum][SquareNum];
 extern Bitboard EdgeBB[ColorNum];
 
-inline Bitboard squareMaskBB(Square sq) { return SquareMaskBB[sq]; }
-inline Bitboard greaterMask(Square sq) { return GreaterMaskBB[sq]; }
-inline Bitboard allOneBB() { return AllOneBB; }
-inline Bitboard allZeroBB() { return Bitboard(0, 0); }
-inline Bitboard attackBB(PieceType pc, Square sq) { return AttackBB[pc][sq]; }
-inline Bitboard edgeBB(Color c) { return EdgeBB[c]; }
+inline Bitboard squareMaskBB(Square sq) {
+  return SquareMaskBB[sq];
+}
+inline Bitboard greaterMask(Square sq) {
+  return GreaterMaskBB[sq];
+}
+inline Bitboard allOneBB() {
+  return AllOneBB;
+}
+inline Bitboard allZeroBB() {
+  return Bitboard(0, 0);
+}
+inline Bitboard attackBB(PieceType pc, Square sq) {
+  return AttackBB[pc][sq];
+}
+inline Bitboard edgeBB(Color c) {
+  return EdgeBB[c];
+}
 
 void initAttackBB();
 const char* usi_string(PieceType pc);
