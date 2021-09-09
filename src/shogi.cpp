@@ -219,9 +219,9 @@ std::string Pieces2Sfen(const PiecePositions& pieces) {
   return ss.str();
 }
 
-template <bool Rev>
+template <Color C>
 bool IsPawnLike(PieceType pc) {
-  if (Rev) {
+  if constexpr (C == White) {
     pc = Reverse(pc);
   }
 
@@ -299,6 +299,6 @@ std::vector<PieceType> InputParse(std::string in_str) {
 }
 
 // explicit instanciation
-template bool IsPawnLike<false>(PieceType pc);
-template bool IsPawnLike<true>(PieceType pc);
+template bool IsPawnLike<Black>(PieceType pc);
+template bool IsPawnLike<White>(PieceType pc);
 }  // namespace komori

@@ -160,7 +160,7 @@ using PiecePositions = std::vector<PiecePosition>;
 std::string Pieces2Sfen(const PiecePositions& pieces);
 
 /// Judge if `pc` has an effect on the forwarding square
-template <bool Rev>
+template <Color C>
 bool IsPawnLike(PieceType pc);
 // </pieces>
 
@@ -230,17 +230,17 @@ class Bitboard {
     _mm_store_si128(&tmp.m_, _mm_andnot_si128(this->m_, bb.m_));
     return tmp;
   }
-  template <bool Rev>
+  template <Color C>
   Bitboard down(void) const {
-    if (!Rev) {
+    if constexpr (C == Black) {
       return *this << 1;
     } else {
       return *this >> 1;
     }
   }
-  template <bool Rev>
+  template <Color C>
   Bitboard up(void) const {
-    if (!Rev) {
+    if constexpr (C == Black) {
       return *this >> 1;
     } else {
       return *this << 1;

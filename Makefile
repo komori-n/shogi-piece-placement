@@ -1,7 +1,7 @@
 TARGET  = ./shogi-piece-placement.out
 TESTTARGET = ./gtest.out
 
-CC      = g++ -O3 -std=c++14 -fopenmp -pthread -mavx2
+CC      = g++ -O3 -std=c++17 -fopenmp -pthread -mavx2
 CFLAGS  = -Wall -MMD -MP
 GTEST_DIR = /usr/local
 

@@ -41,23 +41,23 @@ struct PCSortObject {
 };
 
 /// Count the number of pawn-like pieces
-template <bool Rev>
+template <Color C>
 int CountPawnLike(const PCVector& pc_list) {
-  return std::count_if(pc_list.begin(), pc_list.end(), [](const PieceType& pc) { return IsPawnLike<Rev>(pc); });
+  return std::count_if(pc_list.begin(), pc_list.end(), [](const PieceType& pc) { return IsPawnLike<C>(pc); });
 }
 
 int CountPawnLikeEither(const PCVector& pc_list) {
   return std::count_if(pc_list.begin(), pc_list.end(),
-                       [](const PieceType& pc) { return IsPawnLike<false>(pc) || IsPawnLike<true>(pc); });
+                       [](const PieceType& pc) { return IsPawnLike<Black>(pc) || IsPawnLike<White>(pc); });
 }
 
-template <bool Rev>
+template <Color C>
 Bitboard PawnPlaceable(Bitboard no_effect_bb, Bitboard pieces_bb) {
-  return no_effect_bb & ~pieces_bb.down<Rev>();
+  return no_effect_bb & ~pieces_bb.down<C>();
 }
 
 /// Judge if `pawn`s and `stone`s are placeable in `no_effect_bb`
-template <bool Rev>
+template <Color C>
 bool JudgePlaceable(Bitboard no_effect_bb, int pawn, int stone, Bitboard pawn_allowed) {
   int empty_num = no_effect_bb.popCount();
 
@@ -66,7 +66,7 @@ bool JudgePlaceable(Bitboard no_effect_bb, int pawn, int stone, Bitboard pawn_al
   }
 
   // A bitboard which is allowed to place pawn and is not effected by other pieces
-  Bitboard next_placement = pawn_allowed & ~no_effect_bb.down<Rev>();
+  Bitboard next_placement = pawn_allowed & ~no_effect_bb.down<C>();
   int next_count = next_placement.popCount();
   if (next_count >= pawn) {
     return true;
@@ -74,12 +74,12 @@ bool JudgePlaceable(Bitboard no_effect_bb, int pawn, int stone, Bitboard pawn_al
 
   do {
     // Place pawns to `next_placement`
-    pawn_allowed &= ~(next_placement | next_placement.up<Rev>() | next_placement.down<Rev>());
-    no_effect_bb &= ~(next_placement | next_placement.up<Rev>());
+    pawn_allowed &= ~(next_placement | next_placement.up<C>() | next_placement.down<C>());
+    no_effect_bb &= ~(next_placement | next_placement.up<C>());
     pawn -= next_count;
 
     // Recalculate next placement bitboard
-    next_placement = pawn_allowed & ~no_effect_bb.up<Rev>();
+    next_placement = pawn_allowed & ~no_effect_bb.up<C>();
     next_count = next_placement.popCount();
   } while (next_count > 0 && next_count < pawn);
 
@@ -107,8 +107,8 @@ int Search::RunUnreversible(const PCVector& pc_list) {
   PCVector pc_list_sorted(pc_list);
   std::sort(pc_list_sorted.begin(), pc_list_sorted.end(), PCSortObject{});
 
-  int pawn_b = CountPawnLike<false>(pc_list_sorted);
-  int pawn_w = CountPawnLike<true>(pc_list_sorted);
+  int pawn_b = CountPawnLike<Black>(pc_list_sorted);
+  int pawn_w = CountPawnLike<White>(pc_list_sorted);
 
   PiecePositions pieces_log;
   return SearchImpl(pc_list_sorted, pawn_b, pawn_w, allOneBB(), allZeroBB(), 0, 0, pieces_log, ans_sfens_);
@@ -219,8 +219,8 @@ int Search::SearchImpl(const PCVector& pc_list,
   }
 
   PieceType pc = pc_list[depth];
-  Bitboard pawn_allowed_b = PawnPlaceable<false>(no_effect_bb, pieces_bb);
-  Bitboard pawn_allowed_w = PawnPlaceable<true>(no_effect_bb, pieces_bb);
+  Bitboard pawn_allowed_b = PawnPlaceable<Black>(no_effect_bb, pieces_bb);
+  Bitboard pawn_allowed_w = PawnPlaceable<White>(no_effect_bb, pieces_bb);
   Bitboard placeable_bb = no_effect_bb;
   // In order to avoid duplicate search, if a placed piece is the same as the previous one, it can be places on squares
   // that is greater than previous one.
@@ -236,8 +236,8 @@ int Search::SearchImpl(const PCVector& pc_list,
   int stone_b = pc_len - depth - pawn_b;
   int stonw_w = pc_len - depth - pawn_w;
   // Purning by inferier pieces method
-  if (!JudgePlaceable<false>(no_effect_bb, pawn_b, stone_b, pawn_allowed_b) ||
-      !JudgePlaceable<true>(no_effect_bb, pawn_w, stonw_w, pawn_allowed_w)) {
+  if (!JudgePlaceable<Black>(no_effect_bb, pawn_b, stone_b, pawn_allowed_b) ||
+      !JudgePlaceable<White>(no_effect_bb, pawn_w, stonw_w, pawn_allowed_w)) {
     return 0;
   }
 
@@ -256,8 +256,8 @@ int Search::SearchImpl(const PCVector& pc_list,
       pieces_log.push_back({pc, sq});
 
       // Update #(pawn) and go to next depth
-      int new_pawn_b = pawn_b - IsPawnLike<false>(pc);
-      int new_pawn_w = pawn_w - IsPawnLike<true>(pc);
+      int new_pawn_b = pawn_b - IsPawnLike<Black>(pc);
+      int new_pawn_w = pawn_w - IsPawnLike<White>(pc);
       found_cnt += SearchImpl(pc_list, new_pawn_b, new_pawn_w, no_effect_bb & (~attack), pieces_bb | SquareMaskBB(sq),
                               depth + 1, sq, pieces_log, ans);
       pieces_log.pop_back();
@@ -336,8 +336,8 @@ bool Search::search_both_dir_pawn_(const PCVector& pc_list,
       // placeable pc at sq
       pieces_log.push_back({pc, sq});
 
-      int new_pawn = pawn - (IsPawnLike<false>(pc) || IsPawnLike<true>(pc));
-      int new_stone = stone - !(IsPawnLike<false>(pc) || IsPawnLike<true>(pc));
+      int new_pawn = pawn - (IsPawnLike<Black>(pc) || IsPawnLike<White>(pc));
+      int new_stone = stone - !(IsPawnLike<Black>(pc) || IsPawnLike<White>(pc));
       bool found = search_both_dir_pawn_(pc_list, new_pawn, new_stone, lance, no_effect_bb & (~attack),
                                          pieces_bb | SquareMaskBB(sq), depth + 1, sq, pieces_log, ans);
 
@@ -364,8 +364,8 @@ bool judge_placeable_dual(Bitboard no_effect_bb, int pawn, int stone, Bitboard p
   // - above is empty
   // - above is effected
   // - here is not effected
-  Bitboard next_placement = ~pieces.down<false>() & ~no_effect_bb.down<false>() & no_effect_bb;
-  Bitboard next_placement_v = ~pieces.down<true>() & ~no_effect_bb.down<true>() & ~next_placement & no_effect_bb;
+  Bitboard next_placement = ~pieces.down<Black>() & ~no_effect_bb.down<Black>() & no_effect_bb;
+  Bitboard next_placement_v = ~pieces.down<White>() & ~no_effect_bb.down<White>() & ~next_placement & no_effect_bb;
   int next_count = next_placement.popCount() + next_placement_v.popCount();
   if (next_count >= pawn) {
     return true;
@@ -377,7 +377,7 @@ bool judge_placeable_dual(Bitboard no_effect_bb, int pawn, int stone, Bitboard p
     // - pawn_w placed      -> piece exists
     // - (pawn placed).up   -> effect
     // - (pawn placed_v).up -> effect
-    no_effect_bb &= ~(next_placement | next_placement_v | next_placement.up<false>() | next_placement_v.up<true>());
+    no_effect_bb &= ~(next_placement | next_placement_v | next_placement.up<Black>() | next_placement_v.up<White>());
     pawn -= next_count;
 
     // condition:
@@ -387,8 +387,8 @@ bool judge_placeable_dual(Bitboard no_effect_bb, int pawn, int stone, Bitboard p
     //     (effect)
     // centinel is not needed because edge pawn is already placed if possible.
     next_placement =
-        (~pieces.down<false>() & ~no_effect_bb.up<false>() & no_effect_bb & no_effect_bb.down<false>().down<false>());
-    next_placement_v = next_placement.up<false>().up<false>();
+        (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb & no_effect_bb.down<Black>().down<Black>());
+    next_placement_v = next_placement.up<Black>().up<Black>();
     next_count = 2 * next_placement.popCount();
   } while (next_count > 0 && next_count < pawn);
 
@@ -400,14 +400,14 @@ bool judge_placeable_dual(Bitboard no_effect_bb, int pawn, int stone, Bitboard p
     return space >= stone;
   }
 
-  next_placement = (~pieces.down<false>() & ~no_effect_bb.up<false>() & no_effect_bb);
+  next_placement = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
   next_count = next_placement.popCount();
   while (next_count > 0 && next_count < pawn) {
     pieces |= next_placement;
-    no_effect_bb &= (next_placement & next_placement.up<false>());
+    no_effect_bb &= (next_placement & next_placement.up<Black>());
     pawn -= next_count;
 
-    next_placement = (~pieces.down<false>() & ~no_effect_bb.up<false>() & no_effect_bb);
+    next_placement = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
     next_count = next_placement.popCount();
   }
 
@@ -432,8 +432,8 @@ bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
   }
 
   // place pawn whose above square is effected
-  Bitboard next_placement = ~pieces.down<false>() & ~no_effect_bb.down<false>() & no_effect_bb;
-  Bitboard next_placement_v = ~pieces.down<true>() & ~no_effect_bb.down<true>() & ~next_placement & no_effect_bb;
+  Bitboard next_placement = ~pieces.down<Black>() & ~no_effect_bb.down<Black>() & no_effect_bb;
+  Bitboard next_placement_v = ~pieces.down<White>() & ~no_effect_bb.down<White>() & ~next_placement & no_effect_bb;
   int next_count = next_placement.popCount() + next_placement_v.popCount();
   if (next_count >= pawn) {
     pawn_bb |= next_placement;
@@ -445,13 +445,13 @@ bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
     pawn_bb |= next_placement;
     pawn_v_bb |= next_placement_v;
     pieces |= next_placement | next_placement_v;
-    no_effect_bb &= ~(next_placement | next_placement_v | next_placement.up<false>() | next_placement_v.up<true>());
+    no_effect_bb &= ~(next_placement | next_placement_v | next_placement.up<Black>() | next_placement_v.up<White>());
     pawn -= next_count;
 
     // centinel is not needed because edge pawn is already placed if possible.
     next_placement =
-        (~pieces.down<false>() & ~no_effect_bb.up<false>() & no_effect_bb & no_effect_bb.down<false>().down<false>());
-    next_placement_v = next_placement.up<false>().up<false>();
+        (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb & no_effect_bb.down<Black>().down<Black>());
+    next_placement_v = next_placement.up<Black>().up<Black>();
     next_count = 2 * next_placement.popCount();
   } while (next_count > 0 && next_count < pawn);
 
@@ -466,7 +466,7 @@ bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
         pawn_bb |= SquareMaskBB(sq);
         --pawn;
         if (pawn > 0) {
-          pawn_v_bb |= SquareMaskBB(sq).up<false>().up<false>();
+          pawn_v_bb |= SquareMaskBB(sq).up<Black>().up<Black>();
           --pawn;
         }
       }
@@ -477,16 +477,16 @@ bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
     }
   }
 
-  next_placement = (~pieces.down<false>() & ~no_effect_bb.up<false>() & no_effect_bb);
+  next_placement = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
   next_count = next_placement.popCount();
   while (next_count > 0 && next_count < pawn) {
     pawn_bb |= next_placement;
     pawn_v_bb |= next_placement_v;
     pieces |= next_placement;
-    no_effect_bb &= (next_placement & next_placement.up<false>());
+    no_effect_bb &= (next_placement & next_placement.up<Black>());
     pawn -= next_count;
 
-    next_placement = (~pieces.down<false>() & ~no_effect_bb.up<false>() & no_effect_bb);
+    next_placement = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
     next_count = next_placement.popCount();
   }
 
