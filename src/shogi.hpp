@@ -9,24 +9,33 @@
 
 namespace komori {
 using u64 = std::uint64_t;
-inline int count1s(u64 x) {
+/// Square in the board
+using Square = int;
+/// Row==0 is a dummy row, which simplify the calculation of effects of edge pawns
+constexpr int SquareNum = (9 + 1) * 10;
+
+/// Count the number of 1s
+inline int Count1s(u64 x) {
   return _mm_popcnt_u64(x);
 }
 
-inline int firstOneFromLSB(const u64 b) {
+/// Get the least significant bit (LSB)
+inline int FirstOneFromLSB(const u64 b) {
   return __builtin_ctzll(b);
 }
 
-using Square = int;
-constexpr int SquareNum = (9 + 1) * 10;  // 1 is centinel row
-inline Square makeSquare(int file, int rank) {
+/// Calculate square from a file and a rank
+inline Square MakeSquare(int file, int rank) {
   return rank + file * 10;
 }
 
 // <pieces>
+/**
+ * @brief A type of pieces.
+ */
 enum PieceType {
   PTWhiteFlag = 0x10,
-  Stone = 0,  // 各 PieceType の or をとったもの。
+  Stone = 0,
   Pawn,
   Lance,
   Knight,
@@ -76,15 +85,19 @@ enum PieceType {
   PieceQueen,
   PieceEmpty,
 
-  PCNum,
+  PCNum,  ///< The number of PieceType
 };
 
+/// Players
 enum Color { Black, White, ColorNum };
 
-inline PieceType rev(PieceType pc) {
+/// Flip the color
+inline PieceType Reverse(PieceType pc) {
   return static_cast<PieceType>(pc ^ PTWhiteFlag);
 }
-inline PieceType promote(PieceType pt) {
+
+/// Promote a piece if possible
+inline PieceType Promote(PieceType pt) {
   switch (pt) {
     case Pawn:
       return ProPawn;
@@ -102,7 +115,9 @@ inline PieceType promote(PieceType pt) {
       return pt;
   }
 }
-inline PieceType simplify_gold(PieceType pt) {
+
+/// Replace gold-like pieces (like promoted pawns) into Gold
+inline PieceType SimplifyGold(PieceType pt) {
   switch (pt) {
     case ProPawn:
     case ProLance:
@@ -113,7 +128,9 @@ inline PieceType simplify_gold(PieceType pt) {
       return pt;
   }
 }
-inline bool is_symmetry(PieceType pt) {
+
+/// Judge if the effect of `pt` is vertically symmetric
+inline bool IsSymmetry(PieceType pt) {
   switch (pt) {
     case King:
     case Rook:
@@ -126,25 +143,29 @@ inline bool is_symmetry(PieceType pt) {
       return false;
   }
 }
-inline PieceType pc2pt(PieceType pc) {
+
+/// Get the piece type (without color information)
+inline PieceType Pc2Pt(PieceType pc) {
   return pc != PieceQueen ? static_cast<PieceType>(pc & ~PTWhiteFlag) : PieceQueen;
 }
 
+/// A pair of a piece and a square
 struct PiecePosition {
-  PieceType pc;
-  Square sq;
-
-  PiecePosition(PieceType pc, Square sq) : pc(pc), sq(sq){};
+  PieceType pc{Stone};
+  Square sq{0};
 };
+/// A vector of `PiecePosition`
 using PiecePositions = std::vector<PiecePosition>;
-std::string pieces2sfen(const PiecePositions& pieces);
+/// Get a string representing the board
+std::string Pieces2Sfen(const PiecePositions& pieces);
 
+/// Judge if `pc` has an effect on the forwarding square
 template <bool Rev>
-bool is_pawn_like(PieceType pc);
+bool IsPawnLike(PieceType pc);
 // </pieces>
 
 class Bitboard;
-extern const Bitboard SquareMaskBB[SquareNum];
+extern const Bitboard kSquareMaskBB[SquareNum];
 
 class Bitboard {
  public:
@@ -225,16 +246,16 @@ class Bitboard {
       return *this << 1;
     }
   }
-  bool isSet(const Square sq) const { return andIsAny(SquareMaskBB[sq]); }
-  void setBit(const Square sq) { *this |= SquareMaskBB[sq]; }
-  void clearBit(const Square sq) { andEqualNot(SquareMaskBB[sq]); }
-  void xorBit(const Square sq) { (*this) ^= SquareMaskBB[sq]; }
-  void xorBit(const Square sq1, const Square sq2) { (*this) ^= (SquareMaskBB[sq1] | SquareMaskBB[sq2]); }
+  bool isSet(const Square sq) const { return andIsAny(kSquareMaskBB[sq]); }
+  void setBit(const Square sq) { *this |= kSquareMaskBB[sq]; }
+  void clearBit(const Square sq) { andEqualNot(kSquareMaskBB[sq]); }
+  void xorBit(const Square sq) { (*this) ^= kSquareMaskBB[sq]; }
+  void xorBit(const Square sq1, const Square sq2) { (*this) ^= (kSquareMaskBB[sq1] | kSquareMaskBB[sq2]); }
   // Bitboard の right 側だけの要素を調べて、最初に 1 であるマスの index を返す。
   // そのマスを 0 にする。
   // Bitboard の right 側が 0 でないことを前提にしている。
   Square firstOneRightFromSQ11() {
-    const Square sq = static_cast<Square>(firstOneFromLSB(this->p(0)));
+    const Square sq = static_cast<Square>(FirstOneFromLSB(this->p(0)));
     // LSB 側の最初の 1 の bit を 0 にする
     this->p_[0] &= this->p(0) - 1;
     return sq;
@@ -243,7 +264,7 @@ class Bitboard {
   // そのマスを 0 にする。
   // Bitboard の left 側が 0 でないことを前提にしている。
   Square firstOneLeftFromSQ81() {
-    const Square sq = static_cast<Square>(firstOneFromLSB(this->p(1)) + 50);
+    const Square sq = static_cast<Square>(FirstOneFromLSB(this->p(1)) + 50);
     // LSB 側の最初の 1 の bit を 0 にする
     this->p_[1] &= this->p(1) - 1;
     return sq;
@@ -259,15 +280,15 @@ class Bitboard {
     return firstOneLeftFromSQ81();
   }
   // 返す位置を 0 にしないバージョン。
-  Square constFirstOneRightFromSQ11() const { return static_cast<Square>(firstOneFromLSB(this->p(0))); }
-  Square constFirstOneLeftFromSQ81() const { return static_cast<Square>(firstOneFromLSB(this->p(1)) + 63); }
+  Square constFirstOneRightFromSQ11() const { return static_cast<Square>(FirstOneFromLSB(this->p(0))); }
+  Square constFirstOneLeftFromSQ81() const { return static_cast<Square>(FirstOneFromLSB(this->p(1)) + 63); }
   Square constFirstOneFromSQ11() const {
     if (this->p(0))
       return constFirstOneRightFromSQ11();
     return constFirstOneLeftFromSQ81();
   }
   // Bitboard の 1 の bit を数える。
-  int popCount() const { return count1s(p(0)) + count1s(p(1)); }
+  int popCount() const { return Count1s(p(0)) + Count1s(p(1)); }
   // bit が 1 つだけ立っているかどうかを判定する。
   bool isOneBit() const { return this->popCount() == 1; }
 
@@ -277,7 +298,7 @@ class Bitboard {
     for (int r = 0; r < 10; ++r) {
       std::printf("%d", (r + 1) % 10);
       for (int f = 9 - 1; f >= 0; --f) {
-        std::printf("  %c", this->isSet(makeSquare(f, r)) ? 'X' : '.');
+        std::printf("  %c", this->isSet(MakeSquare(f, r)) ? 'X' : '.');
       }
       std::putchar('\n');
     }
@@ -286,7 +307,7 @@ class Bitboard {
   }
 
   // 指定した位置が Bitboard のどちらの u64 変数の要素か
-  static int part(const Square sq) { return static_cast<int>(makeSquare(4, 9) < sq); }
+  static int part(const Square sq) { return static_cast<int>(MakeSquare(4, 9) < sq); }
 
  private:
   union {
@@ -297,11 +318,11 @@ class Bitboard {
 
 extern const Bitboard AllOneBB;
 extern Bitboard GreaterMaskBB[SquareNum];
-extern Bitboard AttackBB[PCNum][SquareNum];
+extern Bitboard kAttackBB[PCNum][SquareNum];
 extern Bitboard EdgeBB[ColorNum];
 
-inline Bitboard squareMaskBB(Square sq) {
-  return SquareMaskBB[sq];
+inline Bitboard SquareMaskBB(Square sq) {
+  return kSquareMaskBB[sq];
 }
 inline Bitboard greaterMask(Square sq) {
   return GreaterMaskBB[sq];
@@ -312,17 +333,17 @@ inline Bitboard allOneBB() {
 inline Bitboard allZeroBB() {
   return Bitboard(0, 0);
 }
-inline Bitboard attackBB(PieceType pc, Square sq) {
-  return AttackBB[pc][sq];
+inline Bitboard AttackBB(PieceType pc, Square sq) {
+  return kAttackBB[pc][sq];
 }
 inline Bitboard edgeBB(Color c) {
   return EdgeBB[c];
 }
 
-void initAttackBB();
-const char* usi_string(PieceType pc);
+void InitAttackBB();
+const char* UsiString(PieceType pc);
 
-std::vector<PieceType> input_parse(std::string in_str);
+std::vector<PieceType> InputParse(std::string in_str);
 }  // namespace komori
 
 #endif  // KOMORI_SHOGI_HPP_

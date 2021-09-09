@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <map>
+#include <mutex>
 
 #include "search.hpp"
 #include "shogi.hpp"
@@ -8,14 +9,19 @@
 using namespace komori;
 
 namespace {
-// Ordering pieces for placing
+/**
+ * @brief A function object to sort a PCVector by decending order of strength
+ *
+ * The placement of stronger pieces (whch have more effects) first will make that of rests easier.
+ * This structs enables to sort PCVector by strength ordering heuristically.
+ */
 struct PCSortObject {
   bool operator()(const PieceType& l, const PieceType& r) const {
     // Queen -> ProRook -> ProBishop     (Strong Long Effect Piece)
     // -> Rook -> Bishop -> Lance        (Long Effect Piece)
     // -> King -> Gold, ProXXX -> Silver (Metal Piece)
     // -> Knight -> Pawn -> Stone        (Weak Piece)
-    constexpr int table[PCNum] = {
+    constexpr int kValueTable[PCNum] = {
         305,                 // BStone
         303, 110, 301, 213,  // BPawn, BLance, BKnight, BSilver
         108, 106, 203, 201,  // BBishop, BRook, BGold, BKing
@@ -30,51 +36,85 @@ struct PCSortObject {
         101,                 // Queen
         0,                   // None
     };
-    return table[l] < table[r];
+    return kValueTable[l] < kValueTable[r];
   }
 };
 
+/// Count the number of pawn-like pieces
 template <bool Rev>
-int count_pawn_like(const PCVector& pc_list) {
-  return std::count_if(pc_list.begin(), pc_list.end(), [](const PieceType& pc) { return is_pawn_like<Rev>(pc); });
+int CountPawnLike(const PCVector& pc_list) {
+  return std::count_if(pc_list.begin(), pc_list.end(), [](const PieceType& pc) { return IsPawnLike<Rev>(pc); });
 }
 
-int count_pawn_like_either(const PCVector& pc_list) {
+int CountPawnLikeEither(const PCVector& pc_list) {
   return std::count_if(pc_list.begin(), pc_list.end(),
-                       [](const PieceType& pc) { return is_pawn_like<false>(pc) || is_pawn_like<true>(pc); });
+                       [](const PieceType& pc) { return IsPawnLike<false>(pc) || IsPawnLike<true>(pc); });
 }
 
 template <bool Rev>
-Bitboard pawn_placeable(Bitboard no_effect_bb, Bitboard pieces_bb) {
+Bitboard PawnPlaceable(Bitboard no_effect_bb, Bitboard pieces_bb) {
   return no_effect_bb & ~pieces_bb.down<Rev>();
+}
+
+/// Judge if `pawn`s and `stone`s are placeable in `no_effect_bb`
+template <bool Rev>
+bool JudgePlaceable(Bitboard no_effect_bb, int pawn, int stone, Bitboard pawn_allowed) {
+  int empty_num = no_effect_bb.popCount();
+
+  if (empty_num < pawn + stone) {
+    return false;
+  }
+
+  // A bitboard which is allowed to place pawn and is not effected by other pieces
+  Bitboard next_placement = pawn_allowed & ~no_effect_bb.down<Rev>();
+  int next_count = next_placement.popCount();
+  if (next_count >= pawn) {
+    return true;
+  }
+
+  do {
+    // Place pawns to `next_placement`
+    pawn_allowed &= ~(next_placement | next_placement.up<Rev>() | next_placement.down<Rev>());
+    no_effect_bb &= ~(next_placement | next_placement.up<Rev>());
+    pawn -= next_count;
+
+    // Recalculate next placement bitboard
+    next_placement = pawn_allowed & ~no_effect_bb.up<Rev>();
+    next_count = next_placement.popCount();
+  } while (next_count > 0 && next_count < pawn);
+
+  // (#(pawns to be placed) >= pawn) and (#(empty place) >= stone)
+  return (next_count >= pawn && no_effect_bb.popCount() - 2 * pawn >= stone);
 }
 }  // namespace
 
 namespace komori {
-Search::Search(bool search_all, u64 node_limit)
-    : node_count_(0), node_limit_(node_limit), search_all_(search_all), verbose_(false) {
-  initAttackBB();
+Search::Search(const SearchConfiguration& config) : config_{config} {
+  static std::once_flag once;
+  std::call_once(once, InitAttackBB);
 }
 
-int Search::run(const PCVector& pc_list) {
-  if (search_all_) {
-    return run_all_(pc_list);
+int Search::Run(const PCVector& pc_list) {
+  if (config_.reverse_search) {
+    return RunReversible(pc_list);
   } else {
-    return run_single_(pc_list);
+    return RunUnreversible(pc_list);
   }
 }
 
-int Search::run_single_(const PCVector& pc_list) {
+int Search::RunUnreversible(const PCVector& pc_list) {
+  // Sorting `pc_list` enables purning more effectively
   PCVector pc_list_sorted(pc_list);
-  std::sort(pc_list_sorted.begin(), pc_list_sorted.end(), PCSortObject());
+  std::sort(pc_list_sorted.begin(), pc_list_sorted.end(), PCSortObject{});
 
-  int pawn = count_pawn_like<false>(pc_list_sorted);
-  int pawn_v = count_pawn_like<true>(pc_list_sorted);
+  int pawn_b = CountPawnLike<false>(pc_list_sorted);
+  int pawn_w = CountPawnLike<true>(pc_list_sorted);
+
   PiecePositions pieces_log;
-  return search_(pc_list_sorted, pawn, pawn_v, allOneBB(), allZeroBB(), 0, 0, pieces_log, ans_sfens_, false);
+  return SearchImpl(pc_list_sorted, pawn_b, pawn_w, allOneBB(), allZeroBB(), 0, 0, pieces_log, ans_sfens_);
 }
 
-int Search::run_all_(const PCVector& pc_list) {
+int Search::RunReversible(const PCVector& pc_list) {
   PCVector symmetry_list;
   int asymmetry_len[PieceTypeNum] = {0};
   int asymmetry_cnt[PieceTypeNum] = {0};
@@ -83,7 +123,7 @@ int Search::run_all_(const PCVector& pc_list) {
   int stone = 0;
 
   for (PieceType pc : pc_list) {
-    PieceType pt = simplify_gold(pc2pt(pc));
+    PieceType pt = SimplifyGold(Pc2Pt(pc));
     if (pt == Pawn) {
       // Lance is treated as Pawn in order to speed up
       pawn++;
@@ -92,7 +132,7 @@ int Search::run_all_(const PCVector& pc_list) {
       lance++;
     } else if (pt == Stone) {
       stone++;
-    } else if (is_symmetry(pt)) {
+    } else if (IsSymmetry(pt)) {
       symmetry_list.push_back(pt);
     } else {
       asymmetry_len[pt]++;
@@ -121,21 +161,21 @@ int Search::run_all_(const PCVector& pc_list) {
       }
     }
     std::sort(pc_list.begin(), pc_list.end(), PCSortObject());
-    if (verbose_) {
+    if (config_.verbose) {
       for (PieceType pc : pc_list) {
-        std::printf("%s", usi_string(pc));
+        std::printf("%s", UsiString(pc));
       }
       std::putchar('\n');
     }
 
-    int search_pawn = pawn + count_pawn_like_either(pc_list);
-    int search_stone = stone + (pc_list.size() - count_pawn_like_either(pc_list));
+    int search_pawn = pawn + CountPawnLikeEither(pc_list);
+    int search_stone = stone + (pc_list.size() - CountPawnLikeEither(pc_list));
     PiecePositions pieces_log;
     bool found;
     found = search_both_dir_pawn_(pc_list, search_pawn, search_stone, lance, allOneBB(), allZeroBB(), 0, 0, pieces_log,
                                   ans_sfens_);
     if (found) {
-      if (verbose_) {
+      if (config_.verbose) {
         std::printf("%s\n", ans_sfens_[0].c_str());
       }
       return 1;
@@ -161,71 +201,68 @@ int Search::run_all_(const PCVector& pc_list) {
   }
 }
 
-int Search::search_(const PCVector& pc_list,
-                    int pawn,
-                    int pawn_v,
-                    Bitboard no_effect_bb,
-                    Bitboard pieces_bb,
-                    int depth,
-                    Square last_sq,
-                    PiecePositions& pieces_log,
-                    std::vector<std::string>& ans,
-                    bool search) {
+int Search::SearchImpl(const PCVector& pc_list,
+                       int pawn_b,
+                       int pawn_w,
+                       Bitboard no_effect_bb,
+                       Bitboard pieces_bb,
+                       int depth,
+                       Square last_sq,
+                       PiecePositions& pieces_log,
+                       std::vector<std::string>& ans) {
   int pc_len = static_cast<int>(pc_list.size());
 
   if (depth >= pc_len) {
-    // found placement
-    ans.push_back(pieces2sfen(pieces_log));
-    std::cout << pieces2sfen(pieces_log) << std::endl;
+    // Found a placement
+    ans.push_back(Pieces2Sfen(pieces_log));
     return 1;
   }
 
-  // check limit of nodes
-  ++node_count_;
-  if (node_limit_ != Unlimit && node_count_ >= node_limit_) {
-    return 0;
-  }
-
   PieceType pc = pc_list[depth];
-  Bitboard pawn_allowed = pawn_placeable<false>(no_effect_bb, pieces_bb);
-  Bitboard pawn_allowed_v = pawn_placeable<true>(no_effect_bb, pieces_bb);
+  Bitboard pawn_allowed_b = PawnPlaceable<false>(no_effect_bb, pieces_bb);
+  Bitboard pawn_allowed_w = PawnPlaceable<true>(no_effect_bb, pieces_bb);
   Bitboard placeable_bb = no_effect_bb;
-  // if (pc is the same of previous one)
+  // In order to avoid duplicate search, if a placed piece is the same as the previous one, it can be places on squares
+  // that is greater than previous one.
   if (depth > 0 && pc_list[depth - 1] == pc) {
-    // this piece should be placed after the previous one
     placeable_bb &= greaterMask(last_sq);
     if (pc == BlackPawn) {
-      pawn_allowed &= greaterMask(last_sq);
+      pawn_allowed_b &= greaterMask(last_sq);
     } else if (pc == WhitePawn) {
-      pawn_allowed_v &= greaterMask(last_sq);
+      pawn_allowed_w &= greaterMask(last_sq);
     }
   }
 
-  int stone = pc_len - depth - pawn;
-  int stone_v = pc_len - depth - pawn_v;
-  // pawn-stone pruning
-  if (!judge_placeable<false>(no_effect_bb, pawn, stone, pawn_allowed) ||
-      !judge_placeable<true>(no_effect_bb, pawn_v, stone_v, pawn_allowed_v)) {
+  int stone_b = pc_len - depth - pawn_b;
+  int stonw_w = pc_len - depth - pawn_w;
+  // Purning by inferier pieces method
+  if (!JudgePlaceable<false>(no_effect_bb, pawn_b, stone_b, pawn_allowed_b) ||
+      !JudgePlaceable<true>(no_effect_bb, pawn_w, stonw_w, pawn_allowed_w)) {
     return 0;
   }
 
   int found_cnt = 0;
   while (placeable_bb.isAny()) {
     Square sq = placeable_bb.firstOneFromSQ11();
-    Bitboard attack = attackBB(pc, sq);
+    ++node_count_;
+    // Check the limit of nodes
+    if (config_.node_limit != Unlimit && node_count_ >= config_.node_limit) {
+      return 0;
+    }
+
+    Bitboard attack = AttackBB(pc, sq);
     if (!attack.andIsAny(pieces_bb)) {
-      // placeable pc at sq
-      pieces_log.emplace_back(pc, sq);
+      // Placeable pc at sq
+      pieces_log.push_back({pc, sq});
 
-      // update #(pawn) and go to next depth
-      int new_pawn = pawn - is_pawn_like<false>(pc);
-      int new_pawn_v = pawn_v - is_pawn_like<true>(pc);
-      found_cnt += search_(pc_list, new_pawn, new_pawn_v, no_effect_bb & (~attack), pieces_bb | squareMaskBB(sq),
-                           depth + 1, sq, pieces_log, ans, search);
-
+      // Update #(pawn) and go to next depth
+      int new_pawn_b = pawn_b - IsPawnLike<false>(pc);
+      int new_pawn_w = pawn_w - IsPawnLike<true>(pc);
+      found_cnt += SearchImpl(pc_list, new_pawn_b, new_pawn_w, no_effect_bb & (~attack), pieces_bb | SquareMaskBB(sq),
+                              depth + 1, sq, pieces_log, ans);
       pieces_log.pop_back();
 
-      if (search && found_cnt) {
+      if (!config_.all_placement && found_cnt > 0) {
         break;
       }
     }
@@ -250,20 +287,20 @@ bool Search::search_both_dir_pawn_(const PCVector& pc_list,
     Bitboard pawn_bb, pawn_v_bb;
     // judge if remain pawns and stones are placeable
     if (judge_placeable_dual_retboard(no_effect_bb, pawn, stone, pieces_bb, pawn_bb, pawn_v_bb)) {
-      if (search_lance_ && ((pawn_bb & edgeBB(Black)) | (pawn_v_bb & edgeBB(White))).popCount() < lance) {
+      if (config_.lance_sensitive && ((pawn_bb & edgeBB(Black)) | (pawn_v_bb & edgeBB(White))).popCount() < lance) {
         return 0;
       }
       PiecePositions pieces_ans(pieces_log);
       // convert pawn_bb, pawn_v_bb to pieces_log entry
       while (pawn_bb.isAny()) {
         Square sq = pawn_bb.firstOneFromSQ11();
-        pieces_ans.emplace_back(BlackPawn, sq);
+        pieces_ans.push_back({BlackPawn, sq});
       }
       while (pawn_v_bb.isAny()) {
         Square sq = pawn_v_bb.firstOneFromSQ11();
-        pieces_ans.emplace_back(WhitePawn, sq);
+        pieces_ans.push_back({WhitePawn, sq});
       }
-      ans.push_back(pieces2sfen(pieces_ans));
+      ans.push_back(Pieces2Sfen(pieces_ans));
       return 1;
     } else {
       return 0;
@@ -272,12 +309,12 @@ bool Search::search_both_dir_pawn_(const PCVector& pc_list,
 
   // check limit of nodes
   ++node_count_;
-  if (node_limit_ != Unlimit && node_count_ >= node_limit_) {
+  if (config_.node_limit != Unlimit && node_count_ >= config_.node_limit) {
     return 0;
   }
 
   // print #(nodes) periodically
-  if (verbose_ && node_count_ % 100000000 == 0) {
+  if (config_.verbose && node_count_ % 100000000 == 0) {
     std::printf("%" PRIu64 " %d\n", node_count_, depth);
   }
 
@@ -294,15 +331,15 @@ bool Search::search_both_dir_pawn_(const PCVector& pc_list,
 
   while (placeable_bb.isAny()) {
     Square sq = placeable_bb.firstOneFromSQ11();
-    Bitboard attack = attackBB(pc, sq);
+    Bitboard attack = AttackBB(pc, sq);
     if (!attack.andIsAny(pieces_bb)) {
       // placeable pc at sq
-      pieces_log.emplace_back(pc, sq);
+      pieces_log.push_back({pc, sq});
 
-      int new_pawn = pawn - (is_pawn_like<false>(pc) || is_pawn_like<true>(pc));
-      int new_stone = stone - !(is_pawn_like<false>(pc) || is_pawn_like<true>(pc));
+      int new_pawn = pawn - (IsPawnLike<false>(pc) || IsPawnLike<true>(pc));
+      int new_stone = stone - !(IsPawnLike<false>(pc) || IsPawnLike<true>(pc));
       bool found = search_both_dir_pawn_(pc_list, new_pawn, new_stone, lance, no_effect_bb & (~attack),
-                                         pieces_bb | squareMaskBB(sq), depth + 1, sq, pieces_log, ans);
+                                         pieces_bb | SquareMaskBB(sq), depth + 1, sq, pieces_log, ans);
 
       pieces_log.pop_back();
 
@@ -315,45 +352,11 @@ bool Search::search_both_dir_pawn_(const PCVector& pc_list,
   return false;
 }
 
-template <bool Rev>
-bool judge_placeable(Bitboard no_effect_bb, int pawn, int stone, Bitboard pawn_allowed) {
-  // #(empty squares)
-  int no_effect_num = no_effect_bb.popCount();
-
-  // if (#(empty squares) < #(pieces to place)) not placeable;
-  if (no_effect_num < pawn + stone) {
-    return false;
-  }
-
-  // - alowwed to place pawn
-  // - above is effected
-  Bitboard next_placement = pawn_allowed & ~no_effect_bb.down<Rev>();
-  int next_count = next_placement.popCount();
-  // if (all pawns are placed in board)
-  if (next_count >= pawn) {
-    return true;
-  }
-
-  do {
-    // update board
-    pawn_allowed &= ~(next_placement | next_placement.up<Rev>() | next_placement.down<Rev>());
-    no_effect_bb &= ~(next_placement | next_placement.up<Rev>());
-    pawn -= next_count;
-
-    // pack pawns from bottom of stage
-    next_placement = pawn_allowed & ~no_effect_bb.up<Rev>();
-    next_count = next_placement.popCount();
-  } while (next_count > 0 && next_count < pawn);
-
-  // (#(pawns to be placed) >= pawn) and (#(empty place) >= stone)
-  return (next_count >= pawn && no_effect_bb.popCount() - 2 * pawn >= stone);
-}
-
 bool judge_placeable_dual(Bitboard no_effect_bb, int pawn, int stone, Bitboard pieces) {
-  int no_effect_num = no_effect_bb.popCount();
+  int empty_num = no_effect_bb.popCount();
 
   // if (#(empty squares) < #(pieces to place)) not placeable;
-  if (no_effect_num < pawn + stone) {
+  if (empty_num < pawn + stone) {
     return false;
   }
 
@@ -371,7 +374,7 @@ bool judge_placeable_dual(Bitboard no_effect_bb, int pawn, int stone, Bitboard p
   do {
     pieces |= next_placement | next_placement_v;
     // - pawn placed        -> piece exists
-    // - pawn_v placed      -> piece exists
+    // - pawn_w placed      -> piece exists
     // - (pawn placed).up   -> effect
     // - (pawn placed_v).up -> effect
     no_effect_bb &= ~(next_placement | next_placement_v | next_placement.up<false>() | next_placement_v.up<true>());
@@ -412,19 +415,19 @@ bool judge_placeable_dual(Bitboard no_effect_bb, int pawn, int stone, Bitboard p
   return (next_count >= pawn && no_effect_bb.popCount() - 2 * pawn >= stone);
 }
 
-// @todo(komori): merge judge_placeable
+// @todo(komori): merge JudgePlaceable
 bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
                                    int pawn,
                                    int stone,
                                    Bitboard pieces,
                                    Bitboard& pawn_bb,
                                    Bitboard& pawn_v_bb) {
-  int no_effect_num = no_effect_bb.popCount();
+  int empty_num = no_effect_bb.popCount();
   pawn_bb = allZeroBB();
   pawn_v_bb = allZeroBB();
 
   // if (#(empty square) < #(pieces to place)) -> no placement
-  if (no_effect_num < pawn + stone) {
+  if (empty_num < pawn + stone) {
     return false;
   }
 
@@ -460,10 +463,10 @@ bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
     if (space >= stone) {
       while (pawn > 0) {
         Square sq = next_placement.firstOneFromSQ11();
-        pawn_bb |= squareMaskBB(sq);
+        pawn_bb |= SquareMaskBB(sq);
         --pawn;
         if (pawn > 0) {
-          pawn_v_bb |= squareMaskBB(sq).up<false>().up<false>();
+          pawn_v_bb |= SquareMaskBB(sq).up<false>().up<false>();
           --pawn;
         }
       }
@@ -491,7 +494,7 @@ bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
   if (next_count >= pawn && no_effect_bb.popCount() - 2 * pawn >= stone) {
     while (pawn > 0) {
       Square sq = next_placement.firstOneFromSQ11();
-      pawn_bb |= squareMaskBB(sq);
+      pawn_bb |= SquareMaskBB(sq);
       pawn--;
     }
     return true;
@@ -499,9 +502,5 @@ bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
     return false;
   }
 }
-
-// explicit instanciation
-template bool judge_placeable<false>(Bitboard no_effect_bb, int pawn, int stone, Bitboard pawn_allowed);
-template bool judge_placeable<true>(Bitboard no_effect_bb, int pawn, int stone, Bitboard pawn_allowed);
 
 }  // namespace komori

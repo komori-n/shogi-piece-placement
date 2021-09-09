@@ -4,35 +4,35 @@
 class SearchTest : public ::testing::Test {};
 
 namespace {
-TEST_F(SearchTest, judge_placeable) {
+TEST_F(SearchTest, JudgePlaceable) {
   // space check
-  EXPECT_TRUE(judge_placeable<false>(allOneBB(), 0, 9 * 9, allZeroBB()));
-  EXPECT_FALSE(judge_placeable<false>(allOneBB(), 0, 9 * 9 + 1, allZeroBB()));
+  EXPECT_TRUE(JudgePlaceable<false>(allOneBB(), 0, 9 * 9, allZeroBB()));
+  EXPECT_FALSE(JudgePlaceable<false>(allOneBB(), 0, 9 * 9 + 1, allZeroBB()));
 
   // simple placement
-  EXPECT_TRUE(judge_placeable<false>(squareMaskBB(30), 1, 0, squareMaskBB(30)));
-  EXPECT_TRUE(judge_placeable<false>(squareMaskBB(30) | squareMaskBB(40), 1, 1, squareMaskBB(30) | squareMaskBB(40)));
+  EXPECT_TRUE(JudgePlaceable<false>(squareMaskBB(30), 1, 0, squareMaskBB(30)));
+  EXPECT_TRUE(JudgePlaceable<false>(squareMaskBB(30) | squareMaskBB(40), 1, 1, squareMaskBB(30) | squareMaskBB(40)));
 
   // complex placement
-  EXPECT_TRUE(judge_placeable<false>(squareMaskBB(32) | squareMaskBB(33), 1, 0, squareMaskBB(33)));
-  EXPECT_TRUE(judge_placeable<false>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 1, 2,
+  EXPECT_TRUE(JudgePlaceable<false>(squareMaskBB(32) | squareMaskBB(33), 1, 0, squareMaskBB(33)));
+  EXPECT_TRUE(JudgePlaceable<false>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 1, 2,
+                                    squareMaskBB(33) | squareMaskBB(43)));
+  EXPECT_TRUE(JudgePlaceable<false>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 2, 0,
+                                    squareMaskBB(33) | squareMaskBB(43)));
+  EXPECT_FALSE(JudgePlaceable<false>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 1, 3,
                                      squareMaskBB(33) | squareMaskBB(43)));
-  EXPECT_TRUE(judge_placeable<false>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 2, 0,
+  EXPECT_FALSE(JudgePlaceable<false>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 2, 1,
                                      squareMaskBB(33) | squareMaskBB(43)));
-  EXPECT_FALSE(judge_placeable<false>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 1, 3,
-                                      squareMaskBB(33) | squareMaskBB(43)));
-  EXPECT_FALSE(judge_placeable<false>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 2, 1,
-                                      squareMaskBB(33) | squareMaskBB(43)));
 
   Bitboard bb = squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(34) | squareMaskBB(35);
-  EXPECT_TRUE(judge_placeable<false>(bb, 2, 0, bb & ~squareMaskBB(32)));
-  EXPECT_FALSE(judge_placeable<false>(bb, 2, 1, bb & ~squareMaskBB(32)));
+  EXPECT_TRUE(JudgePlaceable<false>(bb, 2, 0, bb & ~squareMaskBB(32)));
+  EXPECT_FALSE(JudgePlaceable<false>(bb, 2, 1, bb & ~squareMaskBB(32)));
 
   // reverse
-  EXPECT_TRUE(judge_placeable<true>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 1, 2,
-                                    squareMaskBB(32) | squareMaskBB(42)));
-  EXPECT_TRUE(judge_placeable<true>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 2, 0,
-                                    squareMaskBB(32) | squareMaskBB(42)));
+  EXPECT_TRUE(JudgePlaceable<true>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 1, 2,
+                                   squareMaskBB(32) | squareMaskBB(42)));
+  EXPECT_TRUE(JudgePlaceable<true>(squareMaskBB(32) | squareMaskBB(33) | squareMaskBB(42) | squareMaskBB(43), 2, 0,
+                                   squareMaskBB(32) | squareMaskBB(42)));
 }
 
 TEST_F(SearchTest, judge_placeable_dual) {
@@ -79,7 +79,7 @@ TEST_F(SearchTest, Standard) {
   };
 
   Search search(false, Search::Unlimit);
-  EXPECT_EQ(search.run(pc_list), 3720);
+  EXPECT_EQ(search.Run(pc_list), 3720);
 }
 
 TEST_F(SearchTest, Standard_v) {
@@ -92,7 +92,7 @@ TEST_F(SearchTest, Standard_v) {
   };
 
   Search search(false, Search::Unlimit);
-  EXPECT_EQ(search.run(pc_list), 3720);
+  EXPECT_EQ(search.Run(pc_list), 3720);
 }
 
 TEST_F(SearchTest, inferior_piece) {
@@ -105,7 +105,7 @@ TEST_F(SearchTest, inferior_piece) {
   };
 
   Search search(false, Search::Unlimit);
-  EXPECT_EQ(search.run(pc_list), 26);
+  EXPECT_EQ(search.Run(pc_list), 26);
 }
 
 TEST_F(SearchTest, queen) {
@@ -114,7 +114,7 @@ TEST_F(SearchTest, queen) {
   };
 
   Search search(false, Search::Unlimit);
-  EXPECT_EQ(search.run(pc_list), 352);
+  EXPECT_EQ(search.Run(pc_list), 352);
 }
 
 TEST_F(SearchTest, plus4pawn) {
@@ -128,7 +128,7 @@ TEST_F(SearchTest, plus4pawn) {
   };
 
   Search search(true, Search::Unlimit);
-  EXPECT_EQ(search.run(pc_list), 1);
+  EXPECT_EQ(search.Run(pc_list), 1);
 }
 
 TEST_F(SearchTest, plus5pawn) {
@@ -142,6 +142,6 @@ TEST_F(SearchTest, plus5pawn) {
   };
 
   Search search(true, Search::Unlimit);
-  EXPECT_EQ(search.run(pc_list), 0);
+  EXPECT_EQ(search.Run(pc_list), 0);
 }
 }  // namespace

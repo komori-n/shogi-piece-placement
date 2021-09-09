@@ -22,25 +22,22 @@ void help_and_exit(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
-  bool search_all = false;
-  bool verbose = false;
-  bool search_lance = false;
-  u64 node_limit = Search::Unlimit;
+  komori::SearchConfiguration config{};
   std::vector<std::string> piece_sets;
 
   for (int i = 1; i < argc; ++i) {
     const auto& arg = argv[i];
     if (std::strcmp(arg, "-a") == 0) {
-      search_all = true;
+      config.all_placement = true;
     } else if (std::strcmp(arg, "-n") == 0) {
       ++i;
       if (i < argc) {
-        node_limit = std::stoi(std::string(argv[i]));
+        config.node_limit = std::stoi(std::string{argv[i]});
       }
     } else if (std::strcmp(arg, "-v") == 0) {
-      verbose = true;
+      config.verbose = true;
     } else if (std::strcmp(arg, "-l") == 0) {
-      search_lance = true;
+      config.lance_sensitive = true;
     } else if (std::strcmp(arg, "--") == 0) {
       std::string line;
       while (std::getline(std::cin, line)) {
@@ -64,15 +61,15 @@ int main(int argc, char* argv[]) {
   }
 
   for (std::string piece_set : piece_sets) {
-    PCVector pc_list = input_parse(piece_set);
-    Search search(search_all, node_limit);
-    search.set_verbose(verbose);
-    search.set_search_lance(search_lance);
+    PCVector pc_list = InputParse(piece_set);
+    Search search(config);
 
-    int found_cnt = search.run(pc_list);
+    int found_cnt = search.Run(pc_list);
     std::printf("%s %d\n", piece_set.c_str(), found_cnt);
     if (found_cnt > 0) {
-      std::printf("%s\n", search.ans_sfens()[0].c_str());
+      for (const auto& sfen : search.AnsSfens()) {
+        std::cout << sfen << std::endl;
+      }
     }
   }
 

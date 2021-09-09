@@ -5,7 +5,7 @@
 #include "shogi.hpp"
 
 namespace {
-constexpr bool IsPawnLike[komori::PCNum] = {
+constexpr bool kIsPawnLike[komori::PCNum] = {
     false,                       // BStone
     true,  true,  false, true,   // BPawn, BLance, BKnight, BSilver
     false, true,  true,  true,   // BBishop, BRook, BGold, BKing
@@ -23,7 +23,7 @@ constexpr bool IsPawnLike[komori::PCNum] = {
 }  // namespace
 
 namespace komori {
-const Bitboard SquareMaskBB[SquareNum] = {
+const Bitboard kSquareMaskBB[SquareNum] = {
     Bitboard(u64(1) << 0, 0),  Bitboard(u64(1) << 1, 0),  Bitboard(u64(1) << 2, 0),  Bitboard(u64(1) << 3, 0),
     Bitboard(u64(1) << 4, 0),  Bitboard(u64(1) << 5, 0),  Bitboard(u64(1) << 6, 0),  Bitboard(u64(1) << 7, 0),
     Bitboard(u64(1) << 8, 0),  Bitboard(u64(1) << 9, 0),
@@ -77,9 +77,9 @@ bool isInSquare(int file, int rank) {
 bool is_initialized = false;
 }  // namespace
 
-Bitboard AttackBB[PCNum][SquareNum];
+Bitboard kAttackBB[PCNum][SquareNum];
 
-void initAttackBB() {
+void InitAttackBB() {
   int dr[PCNum][ColorNum][8] = {
       // Stone
       {{0}, {0}},
@@ -131,9 +131,9 @@ void initAttackBB() {
     for (int color = 0; color < ColorNum; ++color) {
       for (int r = 0; r < 9; ++r) {
         for (int f = 0; f < 9; ++f) {
-          int sq = makeSquare(f, r);
+          int sq = MakeSquare(f, r);
           int pc = pt | (color == Black ? 0 : PTWhiteFlag);
-          AttackBB[pc][sq] = squareMaskBB(sq);
+          kAttackBB[pc][sq] = SquareMaskBB(sq);
           for (int i = 0; i < 8; ++i) {
             if (dr[pt][color][i] == 0 && df[pt][color][i] == 0)
               break;
@@ -141,7 +141,7 @@ void initAttackBB() {
             int fi = f + df[pt][color][i];
 
             while (isInSquare(fi, ri)) {
-              AttackBB[pc][sq] |= squareMaskBB(makeSquare(fi, ri));
+              kAttackBB[pc][sq] |= SquareMaskBB(MakeSquare(fi, ri));
               if (!(pt == Lance || pt == Rook || pt == Bishop))
                 break;
 
@@ -155,29 +155,29 @@ void initAttackBB() {
   }
   for (int r = 0; r < 9; ++r) {
     for (int f = 0; f < 9; ++f) {
-      Square sq = makeSquare(f, r);
-      AttackBB[BlackProBishop][sq] = AttackBB[BlackBishop][sq] | AttackBB[BlackKing][sq];
-      AttackBB[BlackProRook][sq] = AttackBB[BlackRook][sq] | AttackBB[BlackKing][sq];
-      AttackBB[WhiteProBishop][sq] = AttackBB[WhiteBishop][sq] | AttackBB[WhiteKing][sq];
-      AttackBB[WhiteProRook][sq] = AttackBB[WhiteRook][sq] | AttackBB[WhiteKing][sq];
-      AttackBB[PieceQueen][sq] = AttackBB[BlackBishop][sq] | AttackBB[BlackRook][sq];
+      Square sq = MakeSquare(f, r);
+      kAttackBB[BlackProBishop][sq] = kAttackBB[BlackBishop][sq] | kAttackBB[BlackKing][sq];
+      kAttackBB[BlackProRook][sq] = kAttackBB[BlackRook][sq] | kAttackBB[BlackKing][sq];
+      kAttackBB[WhiteProBishop][sq] = kAttackBB[WhiteBishop][sq] | kAttackBB[WhiteKing][sq];
+      kAttackBB[WhiteProRook][sq] = kAttackBB[WhiteRook][sq] | kAttackBB[WhiteKing][sq];
+      kAttackBB[PieceQueen][sq] = kAttackBB[BlackBishop][sq] | kAttackBB[BlackRook][sq];
     }
   }
 
   for (Square sq = 0; sq < SquareNum; ++sq) {
     GreaterMaskBB[sq] = AllOneBB;
     for (Square sq2 = 0; sq2 <= sq; ++sq2) {
-      GreaterMaskBB[sq] ^= SquareMaskBB[sq2];
+      GreaterMaskBB[sq] ^= kSquareMaskBB[sq2];
     }
   }
 
   for (int f = 0; f < 9; ++f) {
-    EdgeBB[Black] |= SquareMaskBB[makeSquare(f, 0)];
-    EdgeBB[White] |= SquareMaskBB[makeSquare(f, 8)];
+    EdgeBB[Black] |= kSquareMaskBB[MakeSquare(f, 0)];
+    EdgeBB[White] |= kSquareMaskBB[MakeSquare(f, 8)];
   }
 }
 
-const char* usi_string(PieceType pc) {
+const char* UsiString(PieceType pc) {
   const char* usi_table[PCNum] = {"X",  "P",  "L",  "N",  "S",  "B",  "R",  "G",  "K",  "+P", "+L",
                                   "+N", "+S", "+B", "+R", "E",  "X",  "p",  "l",  "n",  "s",  "b",
                                   "r",  "g",  "k",  "+p", "+l", "+n", "+s", "+b", "+r", "Q",  "E"};
@@ -185,7 +185,7 @@ const char* usi_string(PieceType pc) {
   return usi_table[pc];
 }
 
-std::string pieces2sfen(const PiecePositions& pieces) {
+std::string Pieces2Sfen(const PiecePositions& pieces) {
   std::ostringstream ss;
   int space = 0;
   PieceType pcs[SquareNum];
@@ -197,7 +197,7 @@ std::string pieces2sfen(const PiecePositions& pieces) {
 
   for (int r = 0; r < 9; ++r) {
     for (int f = 0; f < 9; ++f) {
-      int sq = makeSquare(f, r);
+      int sq = MakeSquare(f, r);
       if (pcs[sq] == PieceEmpty) {
         ++space;
       } else {
@@ -205,7 +205,7 @@ std::string pieces2sfen(const PiecePositions& pieces) {
           ss << space;
           space = 0;
         }
-        ss << usi_string(pcs[sq]);
+        ss << UsiString(pcs[sq]);
       }
     }
     if (space) {
@@ -220,15 +220,15 @@ std::string pieces2sfen(const PiecePositions& pieces) {
 }
 
 template <bool Rev>
-bool is_pawn_like(PieceType pc) {
+bool IsPawnLike(PieceType pc) {
   if (Rev) {
-    pc = rev(pc);
+    pc = Reverse(pc);
   }
 
-  return IsPawnLike[pc];
+  return kIsPawnLike[pc];
 }
 
-std::vector<PieceType> input_parse(std::string in_str) {
+std::vector<PieceType> InputParse(std::string in_str) {
   std::vector<PieceType> piecetypes;
   std::map<char, PieceType> text2pt;
 
@@ -263,7 +263,7 @@ std::vector<PieceType> input_parse(std::string in_str) {
         number_buf = 1;
       }
 
-      PieceType pc = promote_flag ? promote(pt) : pt;
+      PieceType pc = promote_flag ? Promote(pt) : pt;
       for (int i = 0; i < number_buf; ++i) {
         piecetypes.push_back(pc);
       }
@@ -289,7 +289,7 @@ std::vector<PieceType> input_parse(std::string in_str) {
       number_buf = 1;
     }
 
-    PieceType pc = promote_flag ? promote(pt) : pt;
+    PieceType pc = promote_flag ? Promote(pt) : pt;
     for (int i = 0; i < number_buf; ++i) {
       piecetypes.push_back(pc);
     }
@@ -299,6 +299,6 @@ std::vector<PieceType> input_parse(std::string in_str) {
 }
 
 // explicit instanciation
-template bool is_pawn_like<false>(PieceType pc);
-template bool is_pawn_like<true>(PieceType pc);
+template bool IsPawnLike<false>(PieceType pc);
+template bool IsPawnLike<true>(PieceType pc);
 }  // namespace komori

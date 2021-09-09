@@ -13,7 +13,7 @@ An shogi-piece-layout search engine. Quickly solves unidirectional and bidirecti
 
 ### How to Execute
 
-Clone the repository and run `make` to create an executable file.
+Clone the repository and Run `make` to create an executable file.
 
 ```sh
 $ git clone https://github.com/ToshinoriTsuboi/shogi-piece-placement
