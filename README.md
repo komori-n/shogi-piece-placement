@@ -61,7 +61,6 @@ You can specify search methods with the following command line arguments
 ```
 -a:            Explore all the up and down flips of the pieces.
 -n node_limit: To set an upper limit for the number of search nodes
--v:            Show detailed searching information
 --:            Read the pieces to be placed from the standard input, not from the argument
 ```
 

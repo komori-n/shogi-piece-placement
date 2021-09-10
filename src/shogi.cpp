@@ -66,8 +66,8 @@ const Bitboard AllOneBB =
      Bitboard(u64(0x1ff) << 30, 0) | Bitboard(u64(0x1ff) << 40, 0) | Bitboard(0, u64(0x1ff) << 0) |
      Bitboard(0, u64(0x1ff) << 10) | Bitboard(0, u64(0x1ff) << 20) | Bitboard(0, u64(0x1ff) << 30));
 
-Bitboard GreaterMaskBB[SquareNum];
-Bitboard EdgeBB[ColorNum];
+Bitboard kGreaterMaskBB[SquareNum];
+Bitboard kEdge2BB[ColorNum];
 
 namespace {
 bool isInSquare(int file, int rank) {
@@ -165,15 +165,17 @@ void InitAttackBB() {
   }
 
   for (Square sq = 0; sq < SquareNum; ++sq) {
-    GreaterMaskBB[sq] = AllOneBB;
+    kGreaterMaskBB[sq] = AllOneBB;
     for (Square sq2 = 0; sq2 <= sq; ++sq2) {
-      GreaterMaskBB[sq] ^= kSquareMaskBB[sq2];
+      kGreaterMaskBB[sq] ^= kSquareMaskBB[sq2];
     }
   }
 
   for (int f = 0; f < 9; ++f) {
-    EdgeBB[Black] |= kSquareMaskBB[MakeSquare(f, 0)];
-    EdgeBB[White] |= kSquareMaskBB[MakeSquare(f, 8)];
+    kEdge2BB[Black] |= kSquareMaskBB[MakeSquare(f, 0)];
+    kEdge2BB[Black] |= kSquareMaskBB[MakeSquare(f, 1)];
+    kEdge2BB[White] |= kSquareMaskBB[MakeSquare(f, 8)];
+    kEdge2BB[White] |= kSquareMaskBB[MakeSquare(f, 7)];
   }
 }
 

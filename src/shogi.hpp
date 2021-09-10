@@ -29,6 +29,10 @@ inline Square MakeSquare(int file, int rank) {
   return rank + file * 10;
 }
 
+inline int GetRank(Square sq) {
+  return sq % 10;
+}
+
 // <pieces>
 /**
  * @brief A type of pieces.
@@ -317,15 +321,15 @@ class Bitboard {
 };
 
 extern const Bitboard AllOneBB;
-extern Bitboard GreaterMaskBB[SquareNum];
+extern Bitboard kGreaterMaskBB[SquareNum];
 extern Bitboard kAttackBB[PCNum][SquareNum];
-extern Bitboard EdgeBB[ColorNum];
+extern Bitboard kEdge2BB[ColorNum];
 
 inline Bitboard SquareMaskBB(Square sq) {
   return kSquareMaskBB[sq];
 }
-inline Bitboard greaterMask(Square sq) {
-  return GreaterMaskBB[sq];
+inline Bitboard GreaterMask(Square sq) {
+  return kGreaterMaskBB[sq];
 }
 inline Bitboard allOneBB() {
   return AllOneBB;
@@ -336,8 +340,8 @@ inline Bitboard allZeroBB() {
 inline Bitboard AttackBB(PieceType pc, Square sq) {
   return kAttackBB[pc][sq];
 }
-inline Bitboard edgeBB(Color c) {
-  return EdgeBB[c];
+inline Bitboard Edge2BB(Color c) {
+  return kEdge2BB[c];
 }
 
 void InitAttackBB();

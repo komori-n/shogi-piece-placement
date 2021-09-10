@@ -46,6 +46,7 @@ int CountPawnLike(const PCVector& pc_list) {
   return std::count_if(pc_list.begin(), pc_list.end(), [](const PieceType& pc) { return IsPawnLike<C>(pc); });
 }
 
+/// Count the number of pawn-like pieces (both black pawn and white pawn)
 int CountPawnLikeEither(const PCVector& pc_list) {
   return std::count_if(pc_list.begin(), pc_list.end(),
                        [](const PieceType& pc) { return IsPawnLike<Black>(pc) || IsPawnLike<White>(pc); });
@@ -86,6 +87,162 @@ bool JudgePlaceable(Bitboard no_effect_bb, int pawn, int stone, Bitboard pawn_al
   // (#(pawns to be placed) >= pawn) and (#(empty place) >= stone)
   return (next_count >= pawn && no_effect_bb.popCount() - 2 * pawn >= stone);
 }
+
+/// Judge if `pawn's and `stone`s are placeable in `no_effect_bb` (both direction is ok)
+bool JudgeNonDirectionalPlacement(Bitboard no_effect_bb, int pawn, int stone, Bitboard pieces) {
+  int empty_num = no_effect_bb.popCount();
+
+  if (empty_num < pawn + stone) {
+    return false;
+  }
+
+  // Case 1: The abose square is effected.
+  //   One pawns can be places per an empty square
+
+  // Place pawns as many as possible on the squares applying the following all.
+  // - above is empty
+  // - above is effected
+  // - here is not effected
+  Bitboard next_placement_b = ~pieces.down<Black>() & ~no_effect_bb.down<Black>() & no_effect_bb;
+  Bitboard next_placement_w = ~pieces.down<White>() & ~no_effect_bb.down<White>() & ~next_placement_b & no_effect_bb;
+  int next_count = next_placement_b.popCount() + next_placement_w.popCount();
+  if (next_count >= pawn) {
+    return true;
+  }
+
+  // Case 2: 3 consecutive squares are empty.
+  //   Two pawns can be placed per three empty squares
+  do {
+    // Place pawns to `next_placement_b` and `next_placement_w`
+    pieces |= next_placement_b | next_placement_w;
+    // - pawn placed        -> piece exists
+    // - pawn_w placed      -> piece exists
+    // - (pawn placed).up   -> effect
+    // - (pawn placed_v).up -> effect
+    no_effect_bb &=
+        ~(next_placement_b | next_placement_w | next_placement_b.up<Black>() | next_placement_w.up<White>());
+    pawn -= next_count;
+
+    // condition:
+    //     p
+    //     (no piece)
+    //     P
+    //     (effect)
+    // centinel is not needed because edge pawn is already placed if possible.
+    next_placement_b =
+        (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb & no_effect_bb.down<Black>().down<Black>());
+    next_placement_w = next_placement_b.up<Black>().up<Black>();
+    next_count = 2 * next_placement_b.popCount();
+  } while (next_count > 0 && next_count < pawn);
+
+  if (next_count >= pawn) {
+    int space = no_effect_bb.popCount() - pawn / 2 * 3;
+    if (pawn % 2 == 1) {
+      space -= 2;
+    }
+    return space >= stone;
+  }
+
+  // Case 3: 2 consecutive squares are empty.
+  //   One pawns can be placed per two empty squares
+  next_placement_b = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
+  next_count = next_placement_b.popCount();
+  while (next_count > 0 && next_count < pawn) {
+    pieces |= next_placement_b;
+    no_effect_bb &= (next_placement_b & next_placement_b.up<Black>());
+    pawn -= next_count;
+
+    next_placement_b = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
+    next_count = next_placement_b.popCount();
+  }
+
+  // (#(pawn placeable square) >= pawn) and (#(empty place) >= stone)
+  return (next_count >= pawn && no_effect_bb.popCount() - 2 * pawn >= stone);
+}
+
+bool GetNonDirectionalPlacement(Bitboard no_effect_bb,
+                                int pawn,
+                                int stone,
+                                Bitboard pieces,
+                                Bitboard& pawn_b,
+                                Bitboard& pawn_w) {
+  int empty_num = no_effect_bb.popCount();
+  pawn_b = allZeroBB();
+  pawn_w = allZeroBB();
+
+  if (empty_num < pawn + stone) {
+    return false;
+  }
+
+  // place pawn whose above square is effected
+  Bitboard next_placement_b = ~pieces.down<Black>() & ~no_effect_bb.down<Black>() & no_effect_bb;
+  Bitboard next_placement_w = ~pieces.down<White>() & ~no_effect_bb.down<White>() & ~next_placement_b & no_effect_bb;
+  int next_count = next_placement_b.popCount() + next_placement_w.popCount();
+  if (next_count >= pawn) {
+    goto FOUND;
+  }
+
+  do {
+    pawn_b |= next_placement_b;
+    pawn_w |= next_placement_w;
+    pieces |= next_placement_b | next_placement_w;
+    no_effect_bb &=
+        ~(next_placement_b | next_placement_w | next_placement_b.up<Black>() | next_placement_w.up<White>());
+    pawn -= next_count;
+
+    // centinel is not needed because edge pawn is already placed if possible.
+    next_placement_b =
+        (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb & no_effect_bb.down<Black>().down<Black>());
+    next_placement_w = next_placement_b.up<Black>().up<Black>();
+    next_count = 2 * next_placement_b.popCount();
+  } while (next_count > 0 && next_count < pawn);
+
+  if (next_count >= pawn) {
+    int space = no_effect_bb.popCount() - pawn / 2 * 3;
+    if (pawn % 2 == 1) {
+      space -= 2;
+    }
+    if (space >= stone) {
+      goto FOUND;
+    } else {
+      return false;
+    }
+  }
+
+  next_placement_b = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
+  next_count = next_placement_b.popCount();
+  while (next_count > 0 && next_count < pawn) {
+    pawn_b |= next_placement_b;
+    pawn_w |= next_placement_w;
+    pieces |= next_placement_b;
+    no_effect_bb &= (next_placement_b & next_placement_b.up<Black>());
+    pawn -= next_count;
+
+    next_placement_b = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
+    next_placement_w = allZeroBB();
+    next_count = next_placement_b.popCount();
+  }
+
+  // (#(pawn placeable square) >= pawn) and (#(empty place) >= stone)
+  if (next_count >= pawn && no_effect_bb.popCount() - 2 * pawn >= stone) {
+    goto FOUND;
+  } else {
+    return false;
+  }
+
+FOUND:
+  while (pawn > 0) {
+    if (next_placement_b) {
+      Square sq = next_placement_b.firstOneFromSQ11();
+      pawn_b |= SquareMaskBB(sq);
+    } else {
+      Square sq = next_placement_w.firstOneFromSQ11();
+      pawn_w |= SquareMaskBB(sq);
+    }
+    --pawn;
+  }
+  return true;
+}
 }  // namespace
 
 namespace komori {
@@ -117,11 +274,19 @@ int Search::RunUnreversible(const PCVector& pc_list) {
 int Search::RunReversible(const PCVector& pc_list) {
   PCVector symmetry_list;
   int asymmetry_len[PieceTypeNum] = {0};
-  int asymmetry_cnt[PieceTypeNum] = {0};
+  int flip_len[PieceTypeNum] = {0};
   int pawn = 0;
   int lance = 0;
   int stone = 0;
 
+  if (config_.all_placement) {
+    throw std::runtime_error("all placement is not allowed in reversible search");
+  }
+
+  // Analyze the passed `pc_list`.
+  // - pawn, stone
+  // - (vertically) symmetric pieces (Rook, Bishop, Queen, King)
+  // - (vertically) assymmetric pieces (other)
   for (PieceType pc : pc_list) {
     PieceType pt = SimplifyGold(Pc2Pt(pc));
     if (pt == Pawn) {
@@ -139,66 +304,85 @@ int Search::RunReversible(const PCVector& pc_list) {
     }
   }
 
-  // half of combination is skipped (because of horizonral symmetry)
+  // By horizontal symmetricity, skip the first half ot search
   for (int i = PieceTypeNum - 1; i >= 0; --i) {
     if (asymmetry_len[i] > 0) {
-      asymmetry_cnt[i] = (asymmetry_len[i] + 1) / 2;
+      flip_len[i] = (asymmetry_len[i] + 1) / 2;
       if (asymmetry_len[i] % 2 == 1) {
         break;
       }
     }
   }
 
+  // Try all conbination of piece directions
+  int found_cnt = 0;
   for (;;) {
-    // merge (symmetry list) and (assymmetry list)
     PCVector pc_list(symmetry_list);
     for (int i = 0; i < PieceTypeNum; ++i) {
-      for (int j = 0; j < asymmetry_cnt[i]; ++j) {
+      for (int j = 0; j < flip_len[i]; ++j) {
         pc_list.push_back(PieceType(i));
       }
-      for (int j = asymmetry_cnt[i]; j < asymmetry_len[i]; ++j) {
+      for (int j = flip_len[i]; j < asymmetry_len[i]; ++j) {
         pc_list.push_back(PieceType(i | PTWhiteFlag));
       }
     }
-    std::sort(pc_list.begin(), pc_list.end(), PCSortObject());
-    if (config_.verbose) {
-      for (PieceType pc : pc_list) {
-        std::printf("%s", UsiString(pc));
-      }
-      std::putchar('\n');
-    }
+    std::sort(pc_list.begin(), pc_list.end(), PCSortObject{});
 
     int search_pawn = pawn + CountPawnLikeEither(pc_list);
     int search_stone = stone + (pc_list.size() - CountPawnLikeEither(pc_list));
     PiecePositions pieces_log;
-    bool found;
-    found = search_both_dir_pawn_(pc_list, search_pawn, search_stone, lance, allOneBB(), allZeroBB(), 0, 0, pieces_log,
-                                  ans_sfens_);
-    if (found) {
-      if (config_.verbose) {
-        std::printf("%s\n", ans_sfens_[0].c_str());
-      }
-      return 1;
+    found_cnt += SearchImplReversiblePawn(pc_list, search_pawn, search_stone, lance, allOneBB(), allZeroBB(), 0, 0,
+                                          pieces_log, ans_sfens_);
+
+    if (!config_.all_placement && found_cnt > 0) {
+      goto END;
     }
 
     // next combination
     for (int i = 0; i < PieceTypeNum; ++i) {
       if (asymmetry_len[i] > 0) {
         // check carry-up
-        if (asymmetry_cnt[i] >= asymmetry_len[i]) {
-          asymmetry_cnt[i] = 0;
+        if (flip_len[i] >= asymmetry_len[i]) {
+          flip_len[i] = 0;
         } else {
-          asymmetry_cnt[i]++;
+          flip_len[i]++;
           break;
         }
       }
 
       // if (last combination) break;
       if (i == PieceTypeNum - 1) {
-        return 0;
+        goto END;
       }
     }
   }
+
+END:
+  std::vector<PieceType> golds;
+  for (const auto& pc : pc_list) {
+    auto pt = Pc2Pt(pc);
+    if (pt != SimplifyGold(pt)) {
+      golds.push_back(pt);
+    }
+  }
+  auto itr = golds.cbegin();
+  for (auto& sfen : ans_sfens_) {
+    std::string modified_sfen;
+    for (auto& c : sfen) {
+      if (itr != golds.cend() && c == 'G') {
+        modified_sfen += UsiString(*itr);
+        itr++;
+      } else if (itr != golds.cend() && c == 'g') {
+        modified_sfen += UsiString(static_cast<PieceType>(*itr | PTWhiteFlag));
+        itr++;
+      } else {
+        modified_sfen.push_back(c);
+      }
+    }
+    sfen = std::move(modified_sfen);
+  }
+
+  return found_cnt;
 }
 
 int Search::SearchImpl(const PCVector& pc_list,
@@ -225,11 +409,11 @@ int Search::SearchImpl(const PCVector& pc_list,
   // In order to avoid duplicate search, if a placed piece is the same as the previous one, it can be places on squares
   // that is greater than previous one.
   if (depth > 0 && pc_list[depth - 1] == pc) {
-    placeable_bb &= greaterMask(last_sq);
+    placeable_bb &= GreaterMask(last_sq);
     if (pc == BlackPawn) {
-      pawn_allowed_b &= greaterMask(last_sq);
+      pawn_allowed_b &= GreaterMask(last_sq);
     } else if (pc == WhitePawn) {
-      pawn_allowed_w &= greaterMask(last_sq);
+      pawn_allowed_w &= GreaterMask(last_sq);
     }
   }
 
@@ -271,35 +455,47 @@ int Search::SearchImpl(const PCVector& pc_list,
   return found_cnt;
 }
 
-bool Search::search_both_dir_pawn_(const PCVector& pc_list,
-                                   int pawn,
-                                   int stone,
-                                   int lance,
-                                   Bitboard no_effect_bb,
-                                   Bitboard pieces_bb,
-                                   int depth,
-                                   Square last_sq,
-                                   PiecePositions& pieces_log,
-                                   std::vector<std::string>& ans) {
+int Search::SearchImplReversiblePawn(const PCVector& pc_list,
+                                     int pawn,
+                                     int stone,
+                                     int lance,
+                                     Bitboard no_effect_bb,
+                                     Bitboard pieces_bb,
+                                     int depth,
+                                     Square last_sq,
+                                     PiecePositions& pieces_log,
+                                     std::vector<std::string>& ans) {
   int pc_len = static_cast<int>(pc_list.size());
 
   if (depth >= pc_len) {
-    Bitboard pawn_bb, pawn_v_bb;
+    Bitboard pawn_b, pawn_w;
     // judge if remain pawns and stones are placeable
-    if (judge_placeable_dual_retboard(no_effect_bb, pawn, stone, pieces_bb, pawn_bb, pawn_v_bb)) {
-      if (config_.lance_sensitive && ((pawn_bb & edgeBB(Black)) | (pawn_v_bb & edgeBB(White))).popCount() < lance) {
+    if (GetNonDirectionalPlacement(no_effect_bb, pawn, stone, pieces_bb, pawn_b, pawn_w)) {
+      if ((pawn_b & Edge2BB(Black)).popCount() + (pawn_w & Edge2BB(White)).popCount() < lance) {
         return 0;
       }
+
       PiecePositions pieces_ans(pieces_log);
       // convert pawn_bb, pawn_v_bb to pieces_log entry
-      while (pawn_bb.isAny()) {
-        Square sq = pawn_bb.firstOneFromSQ11();
-        pieces_ans.push_back({BlackPawn, sq});
+      while (pawn_b.isAny()) {
+        Square sq = pawn_b.firstOneFromSQ11();
+        if (lance > 0 && GetRank(sq) <= 1) {
+          pieces_ans.push_back({BlackLance, sq});
+          lance--;
+        } else {
+          pieces_ans.push_back({BlackPawn, sq});
+        }
       }
-      while (pawn_v_bb.isAny()) {
-        Square sq = pawn_v_bb.firstOneFromSQ11();
-        pieces_ans.push_back({WhitePawn, sq});
+      while (pawn_w.isAny()) {
+        Square sq = pawn_w.firstOneFromSQ11();
+        if (lance > 0 && GetRank(sq) >= 7) {
+          pieces_ans.push_back({WhiteLance, sq});
+          lance--;
+        } else {
+          pieces_ans.push_back({WhitePawn, sq});
+        }
       }
+
       ans.push_back(Pieces2Sfen(pieces_ans));
       return 1;
     } else {
@@ -307,29 +503,25 @@ bool Search::search_both_dir_pawn_(const PCVector& pc_list,
     }
   }
 
-  // check limit of nodes
-  ++node_count_;
-  if (config_.node_limit != Unlimit && node_count_ >= config_.node_limit) {
-    return 0;
-  }
-
-  // print #(nodes) periodically
-  if (config_.verbose && node_count_ % 100000000 == 0) {
-    std::printf("%" PRIu64 " %d\n", node_count_, depth);
-  }
-
   PieceType pc = pc_list[depth];
   Bitboard placeable_bb = no_effect_bb;
   if (depth > 0 && pc_list[depth - 1] == pc) {
-    placeable_bb &= greaterMask(last_sq);
+    placeable_bb &= GreaterMask(last_sq);
   }
 
   // pawn-stone purning
-  if (!judge_placeable_dual(no_effect_bb, pawn, stone, pieces_bb)) {
+  if (!JudgeNonDirectionalPlacement(no_effect_bb, pawn, stone, pieces_bb)) {
     return 0;
   }
 
+  int found_cnt = 0;
   while (placeable_bb.isAny()) {
+    // check limit of nodes
+    ++node_count_;
+    if (config_.node_limit != Unlimit && node_count_ >= config_.node_limit) {
+      return 0;
+    }
+
     Square sq = placeable_bb.firstOneFromSQ11();
     Bitboard attack = AttackBB(pc, sq);
     if (!attack.andIsAny(pieces_bb)) {
@@ -338,169 +530,18 @@ bool Search::search_both_dir_pawn_(const PCVector& pc_list,
 
       int new_pawn = pawn - (IsPawnLike<Black>(pc) || IsPawnLike<White>(pc));
       int new_stone = stone - !(IsPawnLike<Black>(pc) || IsPawnLike<White>(pc));
-      bool found = search_both_dir_pawn_(pc_list, new_pawn, new_stone, lance, no_effect_bb & (~attack),
-                                         pieces_bb | SquareMaskBB(sq), depth + 1, sq, pieces_log, ans);
+      found_cnt += SearchImplReversiblePawn(pc_list, new_pawn, new_stone, lance, no_effect_bb & (~attack),
+                                            pieces_bb | SquareMaskBB(sq), depth + 1, sq, pieces_log, ans);
 
       pieces_log.pop_back();
 
-      if (found) {
-        return true;
+      if (!config_.all_placement && found_cnt > 0) {
+        return found_cnt;
       }
     }
   }
 
-  return false;
-}
-
-bool judge_placeable_dual(Bitboard no_effect_bb, int pawn, int stone, Bitboard pieces) {
-  int empty_num = no_effect_bb.popCount();
-
-  // if (#(empty squares) < #(pieces to place)) not placeable;
-  if (empty_num < pawn + stone) {
-    return false;
-  }
-
-  // place pawn whose above square is effected
-  // - above is empty
-  // - above is effected
-  // - here is not effected
-  Bitboard next_placement = ~pieces.down<Black>() & ~no_effect_bb.down<Black>() & no_effect_bb;
-  Bitboard next_placement_v = ~pieces.down<White>() & ~no_effect_bb.down<White>() & ~next_placement & no_effect_bb;
-  int next_count = next_placement.popCount() + next_placement_v.popCount();
-  if (next_count >= pawn) {
-    return true;
-  }
-
-  do {
-    pieces |= next_placement | next_placement_v;
-    // - pawn placed        -> piece exists
-    // - pawn_w placed      -> piece exists
-    // - (pawn placed).up   -> effect
-    // - (pawn placed_v).up -> effect
-    no_effect_bb &= ~(next_placement | next_placement_v | next_placement.up<Black>() | next_placement_v.up<White>());
-    pawn -= next_count;
-
-    // condition:
-    //     p
-    //     (no piece)
-    //     P
-    //     (effect)
-    // centinel is not needed because edge pawn is already placed if possible.
-    next_placement =
-        (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb & no_effect_bb.down<Black>().down<Black>());
-    next_placement_v = next_placement.up<Black>().up<Black>();
-    next_count = 2 * next_placement.popCount();
-  } while (next_count > 0 && next_count < pawn);
-
-  if (next_count >= pawn) {
-    int space = no_effect_bb.popCount() - pawn / 2 * 3;
-    if (pawn % 2 == 1) {
-      space -= 2;
-    }
-    return space >= stone;
-  }
-
-  next_placement = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
-  next_count = next_placement.popCount();
-  while (next_count > 0 && next_count < pawn) {
-    pieces |= next_placement;
-    no_effect_bb &= (next_placement & next_placement.up<Black>());
-    pawn -= next_count;
-
-    next_placement = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
-    next_count = next_placement.popCount();
-  }
-
-  // (#(pawn placeable square) >= pawn) and (#(empty place) >= stone)
-  return (next_count >= pawn && no_effect_bb.popCount() - 2 * pawn >= stone);
-}
-
-// @todo(komori): merge JudgePlaceable
-bool judge_placeable_dual_retboard(Bitboard no_effect_bb,
-                                   int pawn,
-                                   int stone,
-                                   Bitboard pieces,
-                                   Bitboard& pawn_bb,
-                                   Bitboard& pawn_v_bb) {
-  int empty_num = no_effect_bb.popCount();
-  pawn_bb = allZeroBB();
-  pawn_v_bb = allZeroBB();
-
-  // if (#(empty square) < #(pieces to place)) -> no placement
-  if (empty_num < pawn + stone) {
-    return false;
-  }
-
-  // place pawn whose above square is effected
-  Bitboard next_placement = ~pieces.down<Black>() & ~no_effect_bb.down<Black>() & no_effect_bb;
-  Bitboard next_placement_v = ~pieces.down<White>() & ~no_effect_bb.down<White>() & ~next_placement & no_effect_bb;
-  int next_count = next_placement.popCount() + next_placement_v.popCount();
-  if (next_count >= pawn) {
-    pawn_bb |= next_placement;
-    pawn_v_bb |= next_placement_v;
-    return true;
-  }
-
-  do {
-    pawn_bb |= next_placement;
-    pawn_v_bb |= next_placement_v;
-    pieces |= next_placement | next_placement_v;
-    no_effect_bb &= ~(next_placement | next_placement_v | next_placement.up<Black>() | next_placement_v.up<White>());
-    pawn -= next_count;
-
-    // centinel is not needed because edge pawn is already placed if possible.
-    next_placement =
-        (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb & no_effect_bb.down<Black>().down<Black>());
-    next_placement_v = next_placement.up<Black>().up<Black>();
-    next_count = 2 * next_placement.popCount();
-  } while (next_count > 0 && next_count < pawn);
-
-  if (next_count >= pawn) {
-    int space = no_effect_bb.popCount() - pawn / 2 * 3;
-    if (pawn % 2 == 1) {
-      space -= 2;
-    }
-    if (space >= stone) {
-      while (pawn > 0) {
-        Square sq = next_placement.firstOneFromSQ11();
-        pawn_bb |= SquareMaskBB(sq);
-        --pawn;
-        if (pawn > 0) {
-          pawn_v_bb |= SquareMaskBB(sq).up<Black>().up<Black>();
-          --pawn;
-        }
-      }
-
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  next_placement = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
-  next_count = next_placement.popCount();
-  while (next_count > 0 && next_count < pawn) {
-    pawn_bb |= next_placement;
-    pawn_v_bb |= next_placement_v;
-    pieces |= next_placement;
-    no_effect_bb &= (next_placement & next_placement.up<Black>());
-    pawn -= next_count;
-
-    next_placement = (~pieces.down<Black>() & ~no_effect_bb.up<Black>() & no_effect_bb);
-    next_count = next_placement.popCount();
-  }
-
-  // (#(pawn placeable square) >= pawn) and (#(empty place) >= stone)
-  if (next_count >= pawn && no_effect_bb.popCount() - 2 * pawn >= stone) {
-    while (pawn > 0) {
-      Square sq = next_placement.firstOneFromSQ11();
-      pawn_bb |= SquareMaskBB(sq);
-      pawn--;
-    }
-    return true;
-  } else {
-    return false;
-  }
+  return found_cnt;
 }
 
 }  // namespace komori

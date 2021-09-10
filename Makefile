@@ -1,5 +1,4 @@
 TARGET  = ./shogi-piece-placement.out
-TESTTARGET = ./gtest.out
 
 CC      = g++ -O3 -std=c++17 -fopenmp -pthread -mavx2
 CFLAGS  = -Wall -MMD -MP
@@ -24,13 +23,9 @@ DEPENDS = $(OBJS:.o=.d) $(TESTOBJ:.o=.d) $(MAINOBJ:.o=.d)
 
 
 all: $(TARGET)
-test: $(TESTTARGET) testrun
 
 $(TARGET): $(MAINOBJ) $(OBJS)
 	$(CC) -o $@ $(MAINOBJ) $(OBJS)
-
-$(TESTTARGET): $(TESTOBJ) $(OBJS)
-	$(CC) -o $@ $(TESTOBJ) $(OBJS) $(GTEST_LIBS)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@if [ ! -d $(OBJ_DIR) ]; \
@@ -43,10 +38,6 @@ $(TESTOBJ_DIR)/%.o: $(TEST_DIR)/%.cpp
 		then echo "mkdir -p $(TESTOBJ_DIR)"; mkdir -p $(TESTOBJ_DIR); \
 	fi
 	$(CC) $(CFLAGS) -I $(SRC_DIR) -o $@ -c $<
-
-testrun:
-	$(TESTTARGET)
-
 
 clean:
 	$(RM) $(MAINOBJ) $(OBJS) $(TARGET) $(DEPENDS)
