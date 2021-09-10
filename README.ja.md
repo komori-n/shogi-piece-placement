@@ -24,8 +24,7 @@ $ make
 以下のようにして駒並べの探索ができます。
 
 ```sh
-$ echo 'P18L4N4S4G4K2R2B2' | ./shogi-piece-placement.out --
-3720
+$ ./shogi-piece-placement.out 'P18L4N4S4G4K2R2B2'
 G1LLLLP1G/1R7/P1PSSSP1G/7R1/K1PSPPP1P/3N1N3/K1P1P1P1P/3P1P2N/G1PBPBP1N b - 1
 ```
 
@@ -63,7 +62,7 @@ Q : クイーン
 -a:            駒の上下反転をすべて全探索する
 -n node_limit: 探索ノード数の上限値を設定する
 -v:            詳細な探索情報を表示する
---:            ファイルからではなく、標準入力から配置する駒を読む
+--:            コマンドライン引数からではなく、標準入力から配置する駒を読む
 ```
 
 ## ライセンス

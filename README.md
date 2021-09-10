@@ -24,8 +24,7 @@ $ make
 You can search as follows.
 
 ```sh
-$ echo 'P18L4N4S4G4K2R2B2' | ./shogi-piece-placement.out --
-3720
+$ ./shogi-piece-placement.out 'P18L4N4S4G4K2R2B2'
 G1LLLLP1G/1R7/P1PSSSP1G/7R1/K1PSPPP1P/3N1N3/K1P1P1P1P/3P1P2N/G1PBPBP1N b - 1
 ```
 
@@ -63,7 +62,7 @@ You can specify search methods with the following command line arguments
 -a:            Explore all the up and down flips of the pieces.
 -n node_limit: To set an upper limit for the number of search nodes
 -v:            Show detailed searching information
---:            Read the pieces to be placed from the standard input, not from the file
+--:            Read the pieces to be placed from the standard input, not from the argument
 ```
 
 ## License

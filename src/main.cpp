@@ -11,7 +11,7 @@
 using namespace komori;
 
 void help_and_exit(int argc, char* argv[]) {
-  std::printf("usage: %s [-a] [-n node_limit] [-v] filename\n", argv[0]);
+  std::printf("usage: %s [-a] [-n node_limit] [-v] sfen\n", argv[0]);
   std::printf("usage: %s [-a] [-n node_limit] [-v] --\n", argv[0]);
   std::printf("-a            : search all cases of piece reversing\n");
   std::printf("-n node_limit : node limits of searching\n");
@@ -23,7 +23,7 @@ void help_and_exit(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
   komori::SearchConfiguration config{};
-  std::vector<std::string> piece_sets;
+  std::string piece_set;
 
   for (int i = 1; i < argc; ++i) {
     const auto& arg = argv[i];
@@ -39,38 +39,30 @@ int main(int argc, char* argv[]) {
     } else if (std::strcmp(arg, "-l") == 0) {
       config.lance_sensitive = true;
     } else if (std::strcmp(arg, "--") == 0) {
-      std::string line;
-      while (std::getline(std::cin, line)) {
-        piece_sets.push_back(line);
-      }
+      std::cin >> piece_set;
     } else {
-      std::ifstream ifs(arg);
-      if (!ifs) {
-        std::printf("file open error: %s\n\n", arg);
-        help_and_exit(argc, argv);
-      }
-      std::string line;
-      while (std::getline(ifs, line)) {
-        piece_sets.push_back(line);
-      }
+      piece_set = arg;
     }
   }
 
-  if (piece_sets.size() == 0) {
+  if (piece_set.empty()) {
     help_and_exit(argc, argv);
   }
 
-  for (std::string piece_set : piece_sets) {
-    PCVector pc_list = InputParse(piece_set);
-    Search search(config);
+  PCVector pc_list = InputParse(piece_set);
+  Search search(config);
 
-    int found_cnt = search.Run(pc_list);
-    std::printf("%s %d\n", piece_set.c_str(), found_cnt);
-    if (found_cnt > 0) {
-      for (const auto& sfen : search.AnsSfens()) {
-        std::cout << sfen << std::endl;
-      }
+  int found_cnt = search.Run(pc_list);
+  if (found_cnt > 0) {
+    for (const auto& sfen : search.AnsSfens()) {
+      std::cout << sfen << std::endl;
     }
+
+    if (config.all_placement) {
+      std::cout << "found " << found_cnt << " solutions" << std::endl;
+    }
+  } else {
+    std::cout << "not found" << std::endl;
   }
 
   return EXIT_SUCCESS;
