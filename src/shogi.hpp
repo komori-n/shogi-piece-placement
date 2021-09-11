@@ -3,7 +3,6 @@
 
 #include <immintrin.h>
 #include <cinttypes>
-#include <iostream>
 #include <string>
 #include <vector>
 
