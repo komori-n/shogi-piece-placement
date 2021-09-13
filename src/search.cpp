@@ -474,6 +474,7 @@ int Search::SearchImplReversiblePawn(const PCVector& pc_list,
       if ((pawn_b & Edge2BB(Black)).popCount() + (pawn_w & Edge2BB(White)).popCount() < lance) {
         return 0;
       }
+      auto stone_bb = no_effect_bb & ~pawn_b & ~pawn_w;
 
       PiecePositions pieces_ans(pieces_log);
       // convert pawn_bb, pawn_v_bb to pieces_log entry
@@ -493,6 +494,12 @@ int Search::SearchImplReversiblePawn(const PCVector& pc_list,
           lance--;
         } else {
           pieces_ans.push_back({WhitePawn, sq});
+        }
+      }
+      while (stone_bb.isAny()) {
+        Square sq = stone_bb.firstOneFromSQ11();
+        if (stone > 0) {
+          pieces_ans.push_back({Stone, sq});
         }
       }
 
